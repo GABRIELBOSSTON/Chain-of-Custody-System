@@ -13,7 +13,9 @@ async function bootstrap() {
     origin: 'http://localhost:3001',
   });
 
-  const port = configService.get<number>('PORT') ?? 3000;
+  const configPort = configService.get<string>('PORT');
+  const parsedPort = parseInt(configPort as string, 10);
+  const port = isNaN(parsedPort) ? 3000 : parsedPort;
   await app.listen(port);
 }
 bootstrap().catch((error: unknown) => {

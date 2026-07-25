@@ -2,7 +2,7 @@
 
 # Business Rules
 
-Version : 1.0
+Version : 1.1
 
 ---
 
@@ -306,7 +306,7 @@ Each evidence must have exactly one active QR Code.
 
 ## BR-026
 
-Evidence files must be stored in local storage.
+Attachments must be stored in local storage.
 
 ---
 

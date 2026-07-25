@@ -2,7 +2,7 @@
 
 # Entity Relationship Diagram (ERD)
 
-Version : 1.0
+Version : 1.1
 
 ---
 
@@ -55,8 +55,9 @@ Authentication
 
 - Roles
 - Users
-- OTP Verification
-- MFA Tokens
+- Police Profiles
+- OTP Verifications
+- MFA Secrets
 
 Case Management
 
@@ -67,7 +68,8 @@ Case Management
 Evidence Management
 
 - Evidences
-- Evidence Files
+- Evidence Approvals
+- Attachments
 - Evidence Hashes
 - QR Codes
 
@@ -79,6 +81,11 @@ Security
 
 - Audit Logs
 - System Logs
+
+Reporting
+
+- Reports
+- Report Exports
 
 ---
 
@@ -106,7 +113,27 @@ Each user belongs to exactly one role.
 
 ---
 
-## Users
+## Users (Authentication & Profile)
+
+Relationship
+
+Users
+
+1
+
+↓
+
+1
+
+Police Profiles
+
+Description
+
+A user has exactly one police profile containing their personnel information (DB-002).
+
+---
+
+## Users (Cases)
 
 Relationship
 
@@ -188,11 +215,31 @@ Evidence
 
 Many
 
-Evidence Files
+Attachments
 
 Description
 
 Evidence may contain multiple photos, videos or laboratory documents.
+
+---
+
+## Evidence
+
+Relationship
+
+Evidence
+
+1
+
+↓
+
+Many
+
+Evidence Approvals
+
+Description
+
+Stores requests and detective approvals for modifying or deleting evidence.
 
 ---
 
@@ -262,7 +309,7 @@ History is immutable.
 
 ---
 
-## Users
+## Users (Custody)
 
 Relationship
 
@@ -282,7 +329,7 @@ A user may perform many custody operations.
 
 ---
 
-## Users
+## Users (Audit)
 
 Relationship
 
@@ -302,7 +349,7 @@ Every user activity is recorded.
 
 ---
 
-## Users
+## Users (System)
 
 Relationship
 
@@ -322,51 +369,115 @@ System logs may optionally reference a user.
 
 ---
 
+## Users (Reports)
+
+Relationship
+
+Users
+
+1
+
+↓
+
+Many
+
+Reports
+
+Description
+
+A user may generate multiple reports.
+
+---
+
+## Cases (Reports)
+
+Relationship
+
+Cases
+
+1
+
+↓
+
+Many
+
+Reports
+
+Description
+
+Reports are typically generated for a specific case.
+
+---
+
+## Reports
+
+Relationship
+
+Reports
+
+1
+
+↓
+
+Many
+
+Report Exports
+
+Description
+
+A generated report can be exported multiple times.
+
+---
+
 # Cardinality Summary
 
 Roles
-
 1 → N Users
 
 Users
+1 → 1 Police Profiles
 
+Users
 N → N Cases
 
 Cases
-
 1 → N Evidence
 
 Cases
-
 1 → N Case Status History
 
 Evidence
-
-1 → N Evidence Files
+1 → N Attachments
 
 Evidence
+1 → N Evidence Approvals
 
+Evidence
 1 → N Evidence Hashes
 
 Evidence
-
 1 → 1 QR Code
 
 Evidence
-
 1 → N Custody Events
 
 Users
+1 → N Custody Events
 
+Users
 1 → N Audit Logs
 
 Users
-
 1 → N System Logs
 
 Users
+1 → N Reports
 
-1 → N Custody Events
+Cases
+1 → N Reports
+
+Reports
+1 → N Report Exports
 
 ---
 
@@ -377,21 +488,17 @@ Authentication Module
 Owns
 
 Roles
-
 Users
-
-OTP
-
-MFA
+Police Profiles
+OTP Verifications
+MFA Secrets
 
 Case Module
 
 Owns
 
 Cases
-
 Assignments
-
 Status History
 
 Evidence Module
@@ -399,11 +506,9 @@ Evidence Module
 Owns
 
 Evidence
-
-Files
-
+Evidence Approvals
+Attachments
 Hashes
-
 QR
 
 Security Module
@@ -411,7 +516,6 @@ Security Module
 Owns
 
 Audit Logs
-
 System Logs
 
 Custody Module
@@ -420,6 +524,13 @@ Owns
 
 Custody Events
 
+Reporting Module
+
+Owns
+
+Reports
+Report Exports
+
 ---
 
 # Database Rules
@@ -427,55 +538,35 @@ Custody Events
 Audit Logs
 
 Append Only
-
-Update
-
-Not Allowed
-
-Delete
-
-Not Allowed
+Update Not Allowed
+Delete Not Allowed
 
 ---
 
 Custody Events
 
 Append Only
-
-Update
-
-Not Allowed
-
-Delete
-
-Not Allowed
+Update Not Allowed
+Delete Not Allowed
 
 ---
 
 Evidence
 
-Soft Delete
-
-Allowed
-
-Hard Delete
-
-Restricted
+Soft Delete Allowed
+Hard Delete Restricted
 
 ---
 
 Cases
 
-Archive
-
-Read Only
+Archive Read Only
 
 ---
 
 Hash Verification
 
 Executed During
-
 - View
 - Edit
 - QR Scan
@@ -486,82 +577,63 @@ Executed During
 # Entity Dependency Order
 
 Roles
-
 ↓
-
 Users
-
 ↓
-
+Police Profiles
+↓
+OTP Verifications
+↓
+MFA Secrets
+↓
 Cases
-
 ↓
-
 Case Assignments
-
 ↓
-
 Case Status History
-
 ↓
-
 Evidence
-
 ↓
-
-Evidence Files
-
+Evidence Approvals
 ↓
-
+Attachments
+↓
 Evidence Hashes
-
 ↓
-
 QR Codes
-
 ↓
-
 Custody Events
-
 ↓
-
 Audit Logs
-
 ↓
-
 System Logs
+↓
+Reports
+↓
+Report Exports
 
 ---
 
 # Planned Database Tables
 
 roles
-
 users
-
+police_profiles
 otp_verifications
-
-mfa_tokens
-
+mfa_secrets
 cases
-
 case_assignments
-
 case_status_history
-
 evidences
-
-evidence_files
-
+evidence_approvals
+attachments
 evidence_hashes
-
 qr_codes
-
 custody_events
-
 audit_logs
-
 system_logs
+reports
+report_exports
 
 ---
 

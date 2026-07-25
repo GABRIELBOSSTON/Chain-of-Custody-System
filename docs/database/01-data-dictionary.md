@@ -2,7 +2,7 @@
 
 # Data Dictionary
 
-Version : 1.0
+Version : 1.1
 
 ---
 
@@ -79,7 +79,7 @@ The system is divided into several business modules.
 
 # Entity List
 
-The database consists of sixteen core entities.
+The database consists of eighteen core entities.
 
 ---
 
@@ -107,7 +107,7 @@ Main Responsibilities
 
 Purpose
 
-Stores every registered user.
+Stores every registered user's authentication and account status.
 
 Examples
 
@@ -131,7 +131,25 @@ Passwords are never stored as plaintext.
 
 ---
 
-## 3. OTP Verifications
+## 3. Police Profiles
+
+Purpose
+
+Stores official personnel information for verified police officers.
+
+Main Responsibilities
+
+- Police Identification
+- Personnel metadata (Full Name, Phone)
+- Separation of concerns from authentication (DB-002)
+
+Notes
+
+Linked 1:1 with Users.
+
+---
+
+## 4. OTP Verifications
 
 Purpose
 
@@ -151,7 +169,7 @@ Login authentication uses MFA.
 
 ---
 
-## 4. MFA Tokens
+## 5. MFA Secrets
 
 Purpose
 
@@ -169,7 +187,7 @@ Every login requires MFA.
 
 ---
 
-## 5. Cases
+## 6. Cases
 
 Purpose
 
@@ -192,7 +210,7 @@ Main Responsibilities
 
 ---
 
-## 6. Case Assignments
+## 7. Case Assignments
 
 Purpose
 
@@ -212,7 +230,7 @@ One user can participate in multiple cases.
 
 ---
 
-## 7. Case Status History
+## 8. Case Status History
 
 Purpose
 
@@ -254,7 +272,7 @@ Case status history must never be deleted.
 
 ---
 
-## 8. Evidences
+## 9. Evidences
 
 Purpose
 
@@ -287,7 +305,25 @@ Sensitive information is encrypted before being stored.
 
 ---
 
-## 9. Evidence Files
+## 10. Evidence Approvals
+
+Purpose
+
+Stores requests and approval states for evidence modification.
+
+Main Responsibilities
+
+- Edit Approvals
+- Soft Delete Approvals
+- Detective Supervision
+
+Notes
+
+Ensures evidence integrity through supervisory authorization.
+
+---
+
+## 11. Attachments
 
 Purpose
 
@@ -319,7 +355,7 @@ Database stores only file metadata and file path.
 
 ---
 
-## 10. Evidence Hashes
+## 12. Evidence Hashes
 
 Purpose
 
@@ -344,7 +380,7 @@ Hash is verified during:
 
 ---
 
-## 11. QR Codes
+## 13. QR Codes
 
 Purpose
 
@@ -364,7 +400,7 @@ QR can only be interpreted by the application.
 
 ---
 
-## 12. Custody Events
+## 14. Custody Events
 
 Purpose
 
@@ -398,7 +434,7 @@ Custody events are immutable.
 
 ---
 
-## 13. Audit Logs
+## 15. Audit Logs
 
 Purpose
 
@@ -434,7 +470,7 @@ Update and Delete operations are prohibited.
 
 ---
 
-## 14. System Logs
+## 16. System Logs
 
 Purpose
 
@@ -468,7 +504,7 @@ System logs record application events.
 
 ---
 
-## 15. Reports
+## 17. Reports
 
 Purpose
 
@@ -486,7 +522,7 @@ Report generation always performs hash verification before export.
 
 ---
 
-## 16. Report Exports
+## 18. Report Exports
 
 Purpose
 
@@ -510,8 +546,9 @@ Authentication Module
 
 - Roles
 - Users
+- Police Profiles
 - OTP Verifications
-- MFA Tokens
+- MFA Secrets
 
 Case Management
 
@@ -522,7 +559,8 @@ Case Management
 Evidence Management
 
 - Evidences
-- Evidence Files
+- Evidence Approvals
+- Attachments
 - Evidence Hashes
 - QR Codes
 

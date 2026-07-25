@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
@@ -8,10 +9,22 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
 
-  // TODO: Migrate CORS origin to use ConfigService in Phase 2
+  const allowedOriginsConfig = configService.get<string>('ALLOWED_ORIGINS');
+  const allowedOrigins = allowedOriginsConfig
+    ? allowedOriginsConfig.split(',').map((origin) => origin.trim())
+    : ['http://localhost:3001'];
+
   app.enableCors({
-    origin: 'http://localhost:3001',
+    origin: allowedOrigins,
   });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   const configPort = configService.get<string>('PORT');
   const parsedPort = parseInt(configPort as string, 10);

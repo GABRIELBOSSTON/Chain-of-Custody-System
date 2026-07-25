@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum CaseStatus {
+  OPEN
+  UNDER_INVESTIGATION
+  PENDING_REVIEW
+  REFERRED
+  SUSPENDED
+  COLD
+  ON_HOLD
+  SUBMITTED_TO_PROSECUTION
+  IN_COURT
+  ARCHIVED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalActionType {
+  EDIT
+  SOFT_DELETE
+}
+
+enum CustodyAction {
+  CREATE
+  VIEW
+  HANDOVER_DISPATCH
+  HANDOVER_ACK
+  VERIFY
+}
+
+model Role {
+  id        String   @id @default(uuid()) @db.Char(36)
+  name      String   @unique @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id        String    @id @default(uuid()) @db.Char(36)
+  roleId    String    @map("role_id") @db.Char(36)
+  email     String    @unique @db.VarChar(150)
+  password  String    @db.VarChar(255)
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by") @db.Char(36)
+
+  role                 Role                @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  deletedUsers         User[]              @relation("DeletedBy")
+  deletedByUser        User?               @relation("DeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  policeProfile        PoliceProfile?
+  otpVerifications     OTPVerification[]
+  mfaSecret            MFASecret?
+  caseAssignments      CaseAssignment[]
+  statusHistory        CaseStatusHistory[]
+  evidenceApprovalsReq EvidenceApproval[]  @relation("RequestedBy")
+  evidenceApprovalsApp EvidenceApproval[]  @relation("ApprovedBy")
+  custodyEventsActor   CustodyEvent[]      @relation("Actor")
+  custodyEventsRecip   CustodyEvent[]      @relation("Recipient")
+  auditLogs            AuditLog[]
+  systemLogs           SystemLog[]
+  reports              Report[]
+  reportExports        ReportExport[]
+
+  @@index([deletedAt, isActive])
+  @@index([email])
+  @@index([roleId])
+  @@map("users")
+}
+
+model PoliceProfile {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @unique @map("user_id") @db.Char(36)
+  policeId  String   @unique @map("police_id") @db.VarChar(30)
+  fullName  String   @map("full_name") @db.VarChar(150)
+  phone     String?  @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("police_profiles")
+}
+
+model OTPVerification {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @map("user_id") @db.Char(36)
+  otpCode   String   @map("otp_code") @db.VarChar(10)
+  expiresAt DateTime @map("expires_at")
+  isUsed    Boolean  @default(false) @map("is_used")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("otp_verifications")
+}
+
+model MFASecret {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @unique @map("user_id") @db.Char(36)
+  secret    String   @db.VarChar(255)
+  isEnabled Boolean  @default(false) @map("is_enabled")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("mfa_secrets")
+}
+
+model Case {
+  id          String     @id @default(uuid()) @db.Char(36)
+  caseNumber  String     @unique @map("case_number") @db.VarChar(100)
+  title       String     @db.VarChar(255)
+  description String?    @db.Text
+  status      CaseStatus
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at")
+
+  assignments   CaseAssignment[]
+  statusHistory CaseStatusHistory[]
+  evidences     Evidence[]
+  reports       Report[]
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("cases")
+}
+
+model CaseAssignment {
+  id         String   @id @default(uuid()) @db.Char(36)
+  caseId     String   @map("case_id") @db.Char(36)
+  userId     String   @map("user_id") @db.Char(36)
+  assignedAt DateTime @map("assigned_at")
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([caseId, userId])
+  @@map("case_assignments")
+}
+
+model CaseStatusHistory {
+  id        String     @id @default(uuid()) @db.Char(36)
+  caseId    String     @map("case_id") @db.Char(36)
+  status    CaseStatus
+  changedBy String     @map("changed_by") @db.Char(36)
+  changedAt DateTime   @map("changed_at")
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user User @relation(fields: [changedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("case_status_history")
+}
+
+model Evidence {
+  id              String    @id @default(uuid()) @db.Char(36)
+  caseId          String    @map("case_id") @db.Char(36)
+  name            String    @db.VarChar(255)
+  description     String?   @db.Text
+  currentLocation String    @map("current_location") @db.VarChar(255)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  case          Case               @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  approvals     EvidenceApproval[]
+  attachments   Attachment[]
+  hashes        EvidenceHash[]
+  qrCode        QRCode?
+  custodyEvents CustodyEvent[]
+
+  @@map("evidences")
+}
+
+model EvidenceApproval {
+  id          String             @id @default(uuid()) @db.Char(36)
+  evidenceId  String             @map("evidence_id") @db.Char(36)
+  requestedBy String             @map("requested_by") @db.Char(36)
+  approvedBy  String?            @map("approved_by") @db.Char(36)
+  status      ApprovalStatus
+  actionType  ApprovalActionType @map("action_type")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  evidence       Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requestingUser User     @relation("RequestedBy", fields: [requestedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  approvingUser  User?    @relation("ApprovedBy", fields: [approvedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("evidence_approvals")
+}
+
+model Attachment {
+  id         String   @id @default(uuid()) @db.Char(36)
+  evidenceId String   @map("evidence_id") @db.Char(36)
+  filePath   String   @map("file_path") @db.VarChar(500)
+  fileType   String   @map("file_type") @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("attachments")
+}
+
+model EvidenceHash {
+  id          String   @id @default(uuid()) @db.Char(36)
+  evidenceId  String   @map("evidence_id") @db.Char(36)
+  hashValue   String   @map("hash_value") @db.VarChar(64)
+  generatedAt DateTime @map("generated_at")
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("evidence_hashes")
+}
+
+model QRCode {
+  id         String   @id @default(uuid()) @db.Char(36)
+  evidenceId String   @unique @map("evidence_id") @db.Char(36)
+  qrPayload  String   @map("qr_payload") @db.Text
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("qr_codes")
+}
+
+model CustodyEvent {
+  id          String        @id @default(uuid()) @db.Char(36)
+  evidenceId  String        @map("evidence_id") @db.Char(36)
+  action      CustodyAction
+  actorId     String        @map("actor_id") @db.Char(36)
+  recipientId String?       @map("recipient_id") @db.Char(36)
+  location    String        @db.VarChar(255)
+  eventTime   DateTime      @map("event_time")
+
+  evidence  Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  actor     User     @relation("Actor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  recipient User?    @relation("Recipient", fields: [recipientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("custody_events")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Char(36)
+  userId     String?  @map("user_id") @db.Char(36)
+  action     String   @db.VarChar(255)
+  entityId   String?  @map("entity_id") @db.Char(36)
+  entityType String?  @map("entity_type") @db.VarChar(50)
+  timestamp  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model SystemLog {
+  id        String   @id @default(uuid()) @db.Char(36)
+  level     String   @db.VarChar(20)
+  message   String   @db.Text
+  userId    String?  @map("user_id") @db.Char(36)
+  timestamp DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([timestamp])
+  @@map("system_logs")
+}
+
+model Report {
+  id          String   @id @default(uuid()) @db.Char(36)
+  caseId      String   @map("case_id") @db.Char(36)
+  generatedBy String   @map("generated_by") @db.Char(36)
+  reportData  Json     @map("report_data")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  case          Case           @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user          User           @relation(fields: [generatedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  reportExports ReportExport[]
+
+  @@map("reports")
+}
+
+model ReportExport {
+  id           String   @id @default(uuid()) @db.Char(36)
+  reportId     String   @map("report_id") @db.Char(36)
+  exportedBy   String   @map("exported_by") @db.Char(36)
+  exportFormat String   @map("export_format") @db.VarChar(10)
+  exportedAt   DateTime @map("exported_at")
+
+  report Report @relation(fields: [reportId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  user   User   @relation(fields: [exportedBy], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("report_exports")
+}

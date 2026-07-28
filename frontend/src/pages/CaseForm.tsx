@@ -75,13 +75,22 @@ export default function CaseForm() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '600px', width: '100%' }}>
-        <h1 className="auth-title" style={{ textAlign: 'left' }}>{isEditing ? 'Edit Case' : 'Create Case'}</h1>
-        
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '640px' }}>
+      <div className="page-header">
+        <h1 className="page-title">{isEditing ? 'Edit Case' : 'Create Case'}</h1>
+      </div>
+
+      <div className="glass-panel">
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -104,6 +113,7 @@ export default function CaseForm() {
               className="input-field"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="Brief case title"
               required 
             />
           </div>
@@ -115,8 +125,8 @@ export default function CaseForm() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              style={{ resize: 'vertical' }}
-            ></textarea>
+              placeholder="Case details and description..."
+            />
           </div>
 
           <div className="form-group">
@@ -128,18 +138,18 @@ export default function CaseForm() {
               required
             >
               {CASE_STATUSES.map((s) => (
-                <option key={s} value={s} style={{ color: 'black' }}>
+                <option key={s} value={s}>
                   {s.replace(/_/g, ' ')}
                 </option>
               ))}
             </select>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn-primary" disabled={saving || !!error}>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary btn-full" disabled={saving || !!error}>
               {saving ? 'Saving...' : 'Save Case'}
             </button>
-            <Link to="/cases" className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textAlign: 'center', textDecoration: 'none' }}>
+            <Link to="/cases" className="btn-secondary btn-full" style={{ textAlign: 'center' }}>
               Cancel
             </Link>
           </div>

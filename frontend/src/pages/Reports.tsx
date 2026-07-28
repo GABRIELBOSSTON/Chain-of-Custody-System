@@ -94,9 +94,8 @@ export default function Reports() {
       head: headers,
       body: rows,
       theme: 'grid',
-      headStyles: { fillColor: [79, 70, 229] }, // Indigo 600
+      headStyles: { fillColor: [59, 130, 246] },
       didDrawPage: (dataArg) => {
-        // Footer
         doc.setFontSize(10);
         doc.text(`Page ${dataArg.pageNumber}`, dataArg.settings.margin.left, doc.internal.pageSize.height - 10);
       }
@@ -126,99 +125,105 @@ export default function Reports() {
   };
 
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem', paddingBottom: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '1000px', width: '100%' }}>
-        <h1 className="auth-title" style={{ textAlign: 'left' }}>System Reports</h1>
+    <div className="page-wrapper animate-fade-in">
+      <div className="page-header">
+        <h1 className="page-title">System Reports</h1>
+      </div>
 
-        <form onSubmit={handleGenerate} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-          <div>
-            <label className="input-label">Report Type</label>
-            <select className="input-field" value={reportType} onChange={(e) => { setReportType(e.target.value as ReportType); setGenerated(false); }}>
-              <option value="cases">Cases</option>
-              <option value="evidence">Evidence</option>
-              <option value="custody-events">Chain of Custody</option>
-              <option value="audit-logs">Audit Logs</option>
-            </select>
+      <div className="glass-panel" style={{ marginBottom: 'var(--space-xl)' }}>
+        <form onSubmit={handleGenerate}>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="input-label">Report Type</label>
+              <select className="input-field" value={reportType} onChange={(e) => { setReportType(e.target.value as ReportType); setGenerated(false); }}>
+                <option value="cases">Cases</option>
+                <option value="evidence">Evidence</option>
+                <option value="custody-events">Chain of Custody</option>
+                <option value="audit-logs">Audit Logs</option>
+              </select>
+            </div>
+            <div />
           </div>
-          <div></div>
 
-          <div>
-            <label className="input-label">Start Date (Optional)</label>
-            <input type="date" className="input-field" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="input-label">End Date (Optional)</label>
-            <input type="date" className="input-field" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="input-label">Start Date (Optional)</label>
+              <input type="date" className="input-field" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="input-label">End Date (Optional)</label>
+              <input type="date" className="input-field" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
           </div>
 
           {(reportType === 'evidence' || reportType === 'custody-events') && (
-            <div>
+            <div className="form-group">
               <label className="input-label">Case ID (Optional)</label>
               <input type="text" className="input-field" placeholder="Filter by Case UUID" value={caseId} onChange={(e) => setCaseId(e.target.value)} />
             </div>
           )}
 
           {reportType === 'custody-events' && (
-            <div>
+            <div className="form-group">
               <label className="input-label">Evidence ID (Optional)</label>
               <input type="text" className="input-field" placeholder="Filter by Evidence UUID" value={evidenceId} onChange={(e) => setEvidenceId(e.target.value)} />
             </div>
           )}
 
-          <div style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
-            <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? 'Generating...' : 'Generate Report'}
-            </button>
-          </div>
+          <button type="submit" className="btn-primary btn-full btn-lg" disabled={loading}>
+            {loading ? 'Generating...' : 'Generate Report'}
+          </button>
         </form>
+      </div>
 
-        {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message">{error}</div>}
 
-        {generated && (
-          <div style={{ marginTop: '2rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>Report Preview ({data.length} records)</h3>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button onClick={exportCSV} className="btn-primary" style={{ background: 'var(--accent-color)' }} disabled={data.length === 0}>
-                  Export CSV
-                </button>
-                <button onClick={exportPDF} className="btn-primary" disabled={data.length === 0}>
-                  Export PDF
-                </button>
-              </div>
-            </div>
-
-            <div style={{ overflowX: 'auto', maxHeight: '400px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', color: 'var(--text-primary)' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
-                    {getColumns().map(col => (
-                      <th key={col} style={{ padding: '0.75rem', textAlign: 'left', position: 'sticky', top: 0, background: 'rgba(15, 23, 42, 0.95)' }}>{col}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.length > 0 ? (
-                    getRows().map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        {row.map((cell, j) => (
-                          <td key={j} style={{ padding: '0.75rem' }}>{cell}</td>
-                        ))}
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={getColumns().length} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        No records found for the given criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+      {generated && (
+        <div className="glass-panel animate-slide-up">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+            <h3 className="font-semibold text-lg">
+              Report Preview <span className="text-secondary text-sm font-medium">({data.length} records)</span>
+            </h3>
+            <div className="btn-group">
+              <button onClick={exportCSV} className="btn-primary btn-sm" disabled={data.length === 0}>
+                Export CSV
+              </button>
+              <button onClick={exportPDF} className="btn-secondary btn-sm" disabled={data.length === 0}>
+                Export PDF
+              </button>
             </div>
           </div>
-        )}
-      </div>
+
+          <div className="table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  {getColumns().map(col => (
+                    <th key={col}>{col}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.length > 0 ? (
+                  getRows().map((row, i) => (
+                    <tr key={i}>
+                      {row.map((cell, j) => (
+                        <td key={j} className="text-sm">{cell}</td>
+                      ))}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={getColumns().length} className="table-empty">
+                      No records found for the given criteria.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

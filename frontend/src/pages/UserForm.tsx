@@ -73,13 +73,22 @@ export default function UserForm() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="centered-page">
-      <div className="auth-container glass-panel" style={{ maxWidth: '500px' }}>
-        <h1 className="auth-title" style={{ textAlign: 'left' }}>{isEditing ? 'Edit User' : 'Create User'}</h1>
-        
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '540px' }}>
+      <div className="page-header">
+        <h1 className="page-title">{isEditing ? 'Edit User' : 'Create User'}</h1>
+      </div>
+
+      <div className="glass-panel">
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -90,6 +99,7 @@ export default function UserForm() {
               className="input-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="officer@department.gov"
               required 
             />
           </div>
@@ -103,6 +113,7 @@ export default function UserForm() {
                   className="input-field"
                   value={policeId}
                   onChange={(e) => setPoliceId(e.target.value)}
+                  placeholder="Enter badge number"
                   required 
                 />
               </div>
@@ -113,6 +124,7 @@ export default function UserForm() {
                   className="input-field"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Officer's full name"
                   required 
                 />
               </div>
@@ -127,30 +139,32 @@ export default function UserForm() {
               onChange={(e) => setRoleId(e.target.value)}
               required
             >
-              <option value="" disabled style={{ color: 'black' }}>Select a role</option>
+              <option value="" disabled>Select a role</option>
               {roles.map((r) => (
-                <option key={r.id} value={r.id} style={{ color: 'black' }}>
-                  {r.name}
+                <option key={r.id} value={r.id}>
+                  {r.name.replace(/_/g, ' ')}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <input 
-              type="checkbox" 
-              id="isActive"
-              checked={isActive}
-              onChange={(e) => setIsActive(e.target.checked)}
-            />
-            <label htmlFor="isActive" className="input-label" style={{ marginBottom: 0 }}>Active Account</label>
+          <div className="form-group">
+            <div className="checkbox-wrapper">
+              <input 
+                type="checkbox" 
+                id="isActive"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.target.checked)}
+              />
+              <label htmlFor="isActive" className="input-label" style={{ marginBottom: 0 }}>Active Account</label>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn-primary" disabled={saving || !!error}>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary btn-full" disabled={saving || !!error}>
               {saving ? 'Saving...' : 'Save User'}
             </button>
-            <Link to="/users" className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textAlign: 'center', textDecoration: 'none' }}>
+            <Link to="/users" className="btn-secondary btn-full" style={{ textAlign: 'center' }}>
               Cancel
             </Link>
           </div>

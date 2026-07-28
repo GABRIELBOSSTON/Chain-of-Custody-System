@@ -23,7 +23,6 @@ export default function CustodyEventForm() {
 
   const [users, setUsers] = useState<any[]>([]);
   const [action, setAction] = useState('COLLECTED');
-  // Actor defaults to empty (will be selected by user, though could auto-default to current user)
   const [actorId, setActorId] = useState('');
   const [recipientId, setRecipientId] = useState('');
   const [location, setLocation] = useState('');
@@ -49,9 +48,7 @@ export default function CustodyEventForm() {
       }
     };
     
-    // Set default datetime to now
     const now = new Date();
-    // format as YYYY-MM-DDTHH:mm
     const tzOffset = now.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(now.getTime() - tzOffset)).toISOString().slice(0, 16);
     setEventTime(localISOTime);
@@ -97,19 +94,27 @@ export default function CustodyEventForm() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Loading form...</div>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading form...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem', paddingBottom: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '600px', width: '100%' }}>
-        <h1 className="auth-title" style={{ textAlign: 'left' }}>Add Custody Record</h1>
-        
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '640px' }}>
+      <div className="page-header">
+        <h1 className="page-title">Add Custody Record</h1>
+      </div>
+
+      <div className="glass-panel">
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Action</label>
               <select 
                 className="input-field" 
@@ -118,13 +123,13 @@ export default function CustodyEventForm() {
                 required
               >
                 {CUSTODY_ACTIONS.map((a) => (
-                  <option key={a} value={a} style={{ color: 'black' }}>
+                  <option key={a} value={a}>
                     {a.replace(/_/g, ' ')}
                   </option>
                 ))}
               </select>
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Date & Time</label>
               <input 
                 type="datetime-local" 
@@ -144,9 +149,9 @@ export default function CustodyEventForm() {
               onChange={(e) => setActorId(e.target.value)}
               required
             >
-              <option value="" disabled style={{ color: 'black' }}>Select Person</option>
+              <option value="" disabled>Select Person</option>
               {users.map((u) => (
-                <option key={u.id} value={u.id} style={{ color: 'black' }}>
+                <option key={u.id} value={u.id}>
                   {u.policeProfile?.fullName || u.email}
                 </option>
               ))}
@@ -154,15 +159,15 @@ export default function CustodyEventForm() {
           </div>
 
           <div className="form-group">
-            <label className="input-label">To Person (Recipient) - Optional</label>
+            <label className="input-label">To Person (Recipient) — Optional</label>
             <select 
               className="input-field" 
               value={recipientId} 
               onChange={(e) => setRecipientId(e.target.value)}
             >
-              <option value="" style={{ color: 'black' }}>None</option>
+              <option value="">None</option>
               {users.map((u) => (
-                <option key={u.id} value={u.id} style={{ color: 'black' }}>
+                <option key={u.id} value={u.id}>
                   {u.policeProfile?.fullName || u.email}
                 </option>
               ))}
@@ -189,15 +194,14 @@ export default function CustodyEventForm() {
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Add any relevant transfer notes here..."
-              style={{ resize: 'vertical' }}
-            ></textarea>
+            />
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn-primary" disabled={saving || !!error}>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary btn-full" disabled={saving || !!error}>
               {saving ? 'Saving...' : 'Save Record'}
             </button>
-            <Link to={`/evidences/${evidenceId}/detail`} className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textAlign: 'center', textDecoration: 'none' }}>
+            <Link to={`/evidences/${evidenceId}/detail`} className="btn-secondary btn-full" style={{ textAlign: 'center' }}>
               Cancel
             </Link>
           </div>

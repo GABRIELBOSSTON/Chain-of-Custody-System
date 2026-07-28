@@ -112,8 +112,6 @@ export default function EvidenceForm() {
 
     try {
       if (isEditing) {
-        // Edit mode can still use JSON if not editing file (or FormData if needed)
-        // For simplicity, we just send JSON for editing in this MVP
         const payload = {
           caseId,
           evidenceNumber,
@@ -178,17 +176,26 @@ export default function EvidenceForm() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem', paddingBottom: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '600px', width: '100%' }}>
-        <h1 className="auth-title" style={{ textAlign: 'left' }}>{isEditing ? 'Edit Evidence' : 'Register Evidence'}</h1>
-        
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '680px' }}>
+      <div className="page-header">
+        <h1 className="page-title">{isEditing ? 'Edit Evidence' : 'Register Evidence'}</h1>
+      </div>
+
+      <div className="glass-panel">
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          
+          {/* Basic Info */}
           <div className="form-group">
             <label className="input-label">Associated Case</label>
             <select 
@@ -197,9 +204,9 @@ export default function EvidenceForm() {
               onChange={(e) => setCaseId(e.target.value)}
               required
             >
-              <option value="" disabled style={{ color: 'black' }}>Select a Case</option>
+              <option value="" disabled>Select a Case</option>
               {cases.map((c) => (
-                <option key={c.id} value={c.id} style={{ color: 'black' }}>
+                <option key={c.id} value={c.id}>
                   {c.caseNumber} - {c.title}
                 </option>
               ))}
@@ -213,17 +220,17 @@ export default function EvidenceForm() {
               value={parentId} 
               onChange={(e) => setParentId(e.target.value)}
             >
-              <option value="" style={{ color: 'black' }}>None (Top Level)</option>
+              <option value="">None (Top Level)</option>
               {evidences.filter(e => e.id !== id).map((e) => (
-                <option key={e.id} value={e.id} style={{ color: 'black' }}>
+                <option key={e.id} value={e.id}>
                   {e.evidenceNumber} - {e.title}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Evidence Number</label>
               <input 
                 type="text" 
@@ -234,7 +241,7 @@ export default function EvidenceForm() {
                 required 
               />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Category</label>
               <select 
                 className="input-field" 
@@ -243,9 +250,7 @@ export default function EvidenceForm() {
                 required
               >
                 {EVIDENCE_CATEGORIES.map((c) => (
-                  <option key={c} value={c} style={{ color: 'black' }}>
-                    {c}
-                  </option>
+                  <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
@@ -270,12 +275,12 @@ export default function EvidenceForm() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              style={{ resize: 'vertical' }}
-            ></textarea>
+              placeholder="Provide detailed description of the evidence..."
+            />
           </div>
 
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Collection Date</label>
               <input 
                 type="date" 
@@ -285,7 +290,7 @@ export default function EvidenceForm() {
                 required 
               />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Status</label>
               <select 
                 className="input-field" 
@@ -294,9 +299,7 @@ export default function EvidenceForm() {
                 required
               >
                 {EVIDENCE_STATUSES.map((s) => (
-                  <option key={s} value={s} style={{ color: 'black' }}>
-                    {s.replace(/_/g, ' ')}
-                  </option>
+                  <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
                 ))}
               </select>
             </div>
@@ -314,29 +317,31 @@ export default function EvidenceForm() {
             />
           </div>
 
-          <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Legal Authority</h3>
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
+          {/* Legal Authority Section */}
+          <h3 className="form-section-title">Legal Authority</h3>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Warrant Number</label>
-              <input type="text" className="input-field" value={warrantNumber} onChange={(e) => setWarrantNumber(e.target.value)} />
+              <input type="text" className="input-field" value={warrantNumber} onChange={(e) => setWarrantNumber(e.target.value)} placeholder="Optional" />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Consent Reference</label>
-              <input type="text" className="input-field" value={consentReference} onChange={(e) => setConsentReference(e.target.value)} />
+              <input type="text" className="input-field" value={consentReference} onChange={(e) => setConsentReference(e.target.value)} placeholder="Optional" />
             </div>
           </div>
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Seizure Authorization</label>
-              <input type="text" className="input-field" value={seizureAuth} onChange={(e) => setSeizureAuth(e.target.value)} />
+              <input type="text" className="input-field" value={seizureAuth} onChange={(e) => setSeizureAuth(e.target.value)} placeholder="Optional" />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Legal Basis</label>
-              <input type="text" className="input-field" value={legalBasis} onChange={(e) => setLegalBasis(e.target.value)} />
+              <input type="text" className="input-field" value={legalBasis} onChange={(e) => setLegalBasis(e.target.value)} placeholder="Optional" />
             </div>
           </div>
 
-          <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Physical Storage Tracking</h3>
+          {/* Physical Storage Section */}
+          <h3 className="form-section-title">Physical Storage Tracking</h3>
           <div className="form-group">
             <label className="input-label">Legacy Storage Location (General)</label>
             <input 
@@ -347,64 +352,65 @@ export default function EvidenceForm() {
               placeholder="e.g. Evidence Locker 4B"
             />
           </div>
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Building</label>
-              <input type="text" className="input-field" value={storageBuilding} onChange={(e) => setStorageBuilding(e.target.value)} />
+              <input type="text" className="input-field" value={storageBuilding} onChange={(e) => setStorageBuilding(e.target.value)} placeholder="Optional" />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Room</label>
-              <input type="text" className="input-field" value={storageRoom} onChange={(e) => setStorageRoom(e.target.value)} />
+              <input type="text" className="input-field" value={storageRoom} onChange={(e) => setStorageRoom(e.target.value)} placeholder="Optional" />
             </div>
           </div>
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-            <div>
+          <div className="form-row form-row-3" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Cabinet</label>
-              <input type="text" className="input-field" value={storageCabinet} onChange={(e) => setStorageCabinet(e.target.value)} />
+              <input type="text" className="input-field" value={storageCabinet} onChange={(e) => setStorageCabinet(e.target.value)} placeholder="Optional" />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Shelf</label>
-              <input type="text" className="input-field" value={storageShelf} onChange={(e) => setStorageShelf(e.target.value)} />
+              <input type="text" className="input-field" value={storageShelf} onChange={(e) => setStorageShelf(e.target.value)} placeholder="Optional" />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Locker</label>
-              <input type="text" className="input-field" value={storageLocker} onChange={(e) => setStorageLocker(e.target.value)} />
+              <input type="text" className="input-field" value={storageLocker} onChange={(e) => setStorageLocker(e.target.value)} placeholder="Optional" />
             </div>
           </div>
 
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
-            <input 
-              type="checkbox" 
-              id="isReadyForTransfer"
-              checked={isReadyForTransfer}
-              onChange={(e) => setIsReadyForTransfer(e.target.checked)}
-            />
-            <label htmlFor="isReadyForTransfer" className="input-label" style={{ marginBottom: 0 }}>
-              Ready for Chain-of-Custody Transfer
-            </label>
+          <div className="form-group">
+            <div className="checkbox-wrapper">
+              <input 
+                type="checkbox" 
+                id="isReadyForTransfer"
+                checked={isReadyForTransfer}
+                onChange={(e) => setIsReadyForTransfer(e.target.checked)}
+              />
+              <label htmlFor="isReadyForTransfer" className="input-label" style={{ marginBottom: 0 }}>
+                Ready for Chain-of-Custody Transfer
+              </label>
+            </div>
           </div>
 
           {!isEditing && (
-            <div className="form-group" style={{ marginTop: '1rem' }}>
+            <div className="form-group">
               <label className="input-label">Attachment (Optional)</label>
               <input 
                 type="file" 
                 className="input-field"
                 accept=".jpg,.jpeg,.png,.pdf,.mp4"
                 onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-                style={{ padding: '0.5rem' }}
               />
-              <small style={{ color: 'var(--text-secondary)', display: 'block', marginTop: '0.25rem' }}>
+              <span className="form-hint">
                 Allowed formats: JPG, PNG, PDF, MP4. Max size: 50MB.
-              </small>
+              </span>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn-primary" disabled={saving || !!error}>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary btn-full" disabled={saving || !!error}>
               {saving ? 'Saving...' : 'Save Evidence'}
             </button>
-            <Link to="/evidences" className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textAlign: 'center', textDecoration: 'none' }}>
+            <Link to="/evidences" className="btn-secondary btn-full" style={{ textAlign: 'center' }}>
               Cancel
             </Link>
           </div>

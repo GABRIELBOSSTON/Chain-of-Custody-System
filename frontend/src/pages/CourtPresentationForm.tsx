@@ -52,16 +52,27 @@ export default function CourtPresentationForm() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '600px', width: '100%' }}>
-        <h1 className="auth-title" style={{ textAlign: 'left', color: '#eab308' }}>Court Presentation</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Recording evidence {evidence?.evidenceNumber} presentation in court.
-        </p>
-        
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '640px' }}>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Court Presentation</h1>
+          <p className="page-subtitle">
+            Recording evidence {evidence?.evidenceNumber} presentation in court.
+          </p>
+        </div>
+      </div>
+
+      <div className="glass-panel">
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -100,11 +111,11 @@ export default function CourtPresentationForm() {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn-primary" style={{ background: '#eab308', borderColor: '#eab308', color: '#1a1a1a' }} disabled={saving}>
+          <div className="form-actions">
+            <button type="submit" className="btn-warning btn-full" disabled={saving}>
               {saving ? 'Processing...' : 'Record Presentation'}
             </button>
-            <Link to={`/evidences/${id}/detail`} className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textAlign: 'center', textDecoration: 'none' }}>
+            <Link to={`/evidences/${id}/detail`} className="btn-secondary btn-full" style={{ textAlign: 'center' }}>
               Cancel
             </Link>
           </div>

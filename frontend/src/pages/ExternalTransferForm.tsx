@@ -55,16 +55,27 @@ export default function ExternalTransferForm() {
     }
   };
 
-  if (loading) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '600px', width: '100%' }}>
-        <h1 className="auth-title" style={{ textAlign: 'left' }}>External Transfer</h1>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-          Transferring evidence {evidence?.evidenceNumber} outside of the internal system.
-        </p>
-        
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '640px' }}>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">External Transfer</h1>
+          <p className="page-subtitle">
+            Transferring evidence {evidence?.evidenceNumber} outside of the internal system.
+          </p>
+        </div>
+      </div>
+
+      <div className="glass-panel">
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -80,8 +91,8 @@ export default function ExternalTransferForm() {
             />
           </div>
 
-          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
+          <div className="form-row form-row-2" style={{ marginBottom: 'var(--space-lg)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Recipient Name</label>
               <input 
                 type="text" 
@@ -92,7 +103,7 @@ export default function ExternalTransferForm() {
                 required 
               />
             </div>
-            <div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="input-label">Signature / ID</label>
               <input 
                 type="text" 
@@ -124,17 +135,16 @@ export default function ExternalTransferForm() {
               value={transferReason}
               onChange={(e) => setTransferReason(e.target.value)}
               rows={3}
-              style={{ resize: 'vertical' }}
               placeholder="e.g. For advanced ballistics analysis"
               required
-            ></textarea>
+            />
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-            <button type="submit" className="btn-primary" disabled={saving}>
+          <div className="form-actions">
+            <button type="submit" className="btn-purple btn-full" disabled={saving}>
               {saving ? 'Processing...' : 'Confirm External Transfer'}
             </button>
-            <Link to={`/evidences/${id}/detail`} className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textAlign: 'center', textDecoration: 'none' }}>
+            <Link to={`/evidences/${id}/detail`} className="btn-secondary btn-full" style={{ textAlign: 'center' }}>
               Cancel
             </Link>
           </div>

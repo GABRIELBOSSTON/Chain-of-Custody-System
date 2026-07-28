@@ -33,7 +33,6 @@ export default function QrScanner() {
     }
     
     try {
-      // The decoded text is expected to be a URL containing ?payload=...
       const url = new URL(decodedText);
       const payload = url.searchParams.get('payload');
       
@@ -59,24 +58,26 @@ export default function QrScanner() {
   };
 
   return (
-    <div className="centered-page" style={{ paddingTop: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '500px', width: '100%', padding: '2rem' }}>
-        <h2 className="auth-title" style={{ textAlign: 'center' }}>Scan QR Code</h2>
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '500px', margin: '0 auto' }}>
+      <div className="glass-panel">
+        <h2 className="page-title text-center" style={{ marginBottom: 'var(--space-xl)' }}>Scan QR Code</h2>
         
         {error ? (
           <div style={{ textAlign: 'center' }}>
-            <p className="error-message" style={{ marginBottom: '1.5rem' }}>{error}</p>
-            <button onClick={() => window.location.reload()} className="btn-primary" style={{ marginBottom: '1rem' }}>
-              Try Again
-            </button>
-            <button onClick={() => navigate('/dashboard')} className="btn-secondary" style={{ width: '100%' }}>
-              Back to Dashboard
-            </button>
+            <div className="error-message">{error}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)', marginTop: 'var(--space-lg)' }}>
+              <button onClick={() => window.location.reload()} className="btn-primary btn-full">
+                Try Again
+              </button>
+              <button onClick={() => navigate('/dashboard')} className="btn-secondary btn-full">
+                Back to Dashboard
+              </button>
+            </div>
           </div>
         ) : (
           <div>
-            <div id="qr-reader" style={{ width: '100%', marginBottom: '1.5rem' }}></div>
-            <button onClick={() => navigate('/dashboard')} className="btn-secondary" style={{ width: '100%' }}>
+            <div id="qr-reader" style={{ width: '100%', marginBottom: 'var(--space-lg)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }} />
+            <button onClick={() => navigate('/dashboard')} className="btn-secondary btn-full">
               Cancel
             </button>
           </div>

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import api from '../api';
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
 
@@ -25,26 +24,21 @@ export default function Dashboard() {
     fetchSummary();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
-  const COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
   if (loading) {
     return (
-      <div className="centered-page" style={{ color: 'var(--text-primary)' }}>
-        Loading Dashboard...
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading Dashboard...</span>
       </div>
     );
   }
 
   if (!summary) {
     return (
-      <div className="centered-page" style={{ color: 'var(--text-primary)' }}>
-        Failed to load dashboard. <button onClick={handleLogout} className="btn-primary" style={{marginTop: '1rem'}}>Logout</button>
+      <div className="loading-state">
+        <p className="text-secondary">Failed to load dashboard data.</p>
       </div>
     );
   }
@@ -59,154 +53,196 @@ export default function Dashboard() {
     value: item._count.id
   })) || [];
 
+  const statCards = [
+    { label: 'Total Users', value: summary.totals?.users || 0, color: '#3B82F6', link: '/users' },
+    { label: 'Total Cases', value: summary.totals?.cases || 0, color: '#10B981', link: '/cases' },
+    { label: 'Total Evidence', value: summary.totals?.evidence || 0, color: '#F59E0B', link: '/evidences' },
+    { label: 'Custody Events', value: summary.totals?.custodyEvents || 0, color: '#EF4444', link: '/reports' },
+    { label: 'Audit Logs', value: summary.totals?.auditLogs || 0, color: '#8B5CF6', link: '/audit-logs' },
+    { label: 'Pending Handovers', value: summary.totals?.pendingHandovers || 0, color: '#F59E0B', link: null },
+    { label: 'Overdue Handovers', value: summary.totals?.overdueHandovers || 0, color: '#EF4444', link: null, alert: (summary.totals?.overdueHandovers || 0) > 0 },
+  ];
+
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem', paddingBottom: '4rem' }}>
-      <div style={{ maxWidth: '1200px', width: '100%', padding: '0 2rem' }}>
-        
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <div>
-            <h1 className="auth-title" style={{ textAlign: 'left', marginBottom: '0.5rem' }}>Dashboard</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Welcome back, {user?.policeProfile?.fullName || user?.email}</p>
-          </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <Link to="/scan" className="btn-primary" style={{ textDecoration: 'none', background: '#3b82f6', border: 'none' }}>
-              Scan QR
-            </Link>
-            <button onClick={handleLogout} className="btn-primary" style={{ width: 'auto', background: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}>
-              Logout
-            </button>
-          </div>
-        </div>
+    <div className="page-wrapper animate-fade-in">
+      {/* Welcome Header */}
+      <div style={{ marginBottom: 'var(--space-2xl)' }}>
+        <h1 className="page-title" style={{ fontSize: 'var(--font-size-3xl)', marginBottom: 'var(--space-xs)' }}>
+          Welcome back
+        </h1>
+        <p className="text-secondary text-md">
+          {user?.policeProfile?.fullName || user?.email}
+        </p>
+      </div>
 
-        {/* Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
-          <Link to="/users" className="glass-panel" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem', textAlign: 'center', transition: 'transform 0.2s', display: 'block' }}>
-            <h3 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#818cf8' }}>{summary.totals?.users || 0}</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Total Users</p>
-          </Link>
-          <Link to="/cases" className="glass-panel" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem', textAlign: 'center', transition: 'transform 0.2s', display: 'block' }}>
-            <h3 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#34d399' }}>{summary.totals?.cases || 0}</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Total Cases</p>
-          </Link>
-          <Link to="/evidences" className="glass-panel" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem', textAlign: 'center', transition: 'transform 0.2s', display: 'block' }}>
-            <h3 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#fbbf24' }}>{summary.totals?.evidence || 0}</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Total Evidence</p>
-          </Link>
-          <Link to="/reports" className="glass-panel" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem', textAlign: 'center', transition: 'transform 0.2s', display: 'block' }}>
-            <h3 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f87171' }}>{summary.totals?.custodyEvents || 0}</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Custody Events</p>
-          </Link>
-          <Link to="/audit-logs" className="glass-panel" style={{ textDecoration: 'none', color: 'inherit', padding: '1.5rem', textAlign: 'center', transition: 'transform 0.2s', display: 'block' }}>
-            <h3 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#a78bfa' }}>{summary.totals?.auditLogs || 0}</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Audit Logs</p>
-          </Link>
-          <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', transition: 'transform 0.2s' }}>
-            <h3 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#f59e0b' }}>{summary.totals?.pendingHandovers || 0}</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Pending Handovers</p>
-          </div>
-          <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', transition: 'transform 0.2s', border: summary.totals?.overdueHandovers ? '1px solid #ef4444' : undefined }}>
-            <h3 style={{ fontSize: '2rem', margin: '0 0 0.5rem 0', color: '#ef4444' }}>{summary.totals?.overdueHandovers || 0}</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Overdue Handovers</p>
-          </div>
-        </div>
+      {/* Stat Cards */}
+      <div className="stat-grid" style={{ marginBottom: 'var(--space-2xl)' }}>
+        {statCards.map((card) => {
+          const content = (
+            <>
+              <div className="stat-value" style={{ color: card.color }}>{card.value}</div>
+              <div className="stat-label">{card.label}</div>
+            </>
+          );
 
-        {/* Charts Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
-          {casesData.length > 0 && (
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Cases by Status</h3>
-              <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer>
-                  <PieChart>
-                    <Pie data={casesData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label={({name, percent}: any) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}>
-                      {casesData.map((_: any, index: number) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: 'none', color: '#fff' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+          if (card.link) {
+            return (
+              <Link
+                key={card.label}
+                to={card.link}
+                className="stat-card"
+                style={{ '--stat-accent': card.color } as React.CSSProperties}
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <div
+              key={card.label}
+              className="stat-card"
+              style={{
+                '--stat-accent': card.color,
+                borderColor: card.alert ? 'rgba(239, 68, 68, 0.3)' : undefined,
+              } as React.CSSProperties}
+            >
+              {content}
             </div>
-          )}
+          );
+        })}
+      </div>
 
-          {evidenceData.length > 0 && (
-            <div className="glass-panel" style={{ padding: '1.5rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)' }}>Evidence by Type</h3>
-              <div style={{ width: '100%', height: 250 }}>
-                <ResponsiveContainer>
-                  <BarChart data={evidenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                    <XAxis dataKey="name" stroke="rgba(255,255,255,0.5)" tick={{ fontSize: 12 }} />
-                    <YAxis stroke="rgba(255,255,255,0.5)" />
-                    <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', border: 'none', color: '#fff' }} />
-                    <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+      {/* Charts */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 'var(--space-lg)', marginBottom: 'var(--space-2xl)' }}>
+        {casesData.length > 0 && (
+          <div className="glass-card-static">
+            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-lg)' }}>Cases by Status</h3>
+            <div style={{ width: '100%', height: 260 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={casesData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={90}
+                    innerRadius={45}
+                    fill="#8884d8"
+                    dataKey="value"
+                    strokeWidth={0}
+                    label={({name, percent}: any) => `${name} (${((percent || 0) * 100).toFixed(0)}%)`}
+                  >
+                    {casesData.map((_: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          )}
+          </div>
+        )}
+
+        {evidenceData.length > 0 && (
+          <div className="glass-card-static">
+            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-lg)' }}>Evidence by Category</h3>
+            <div style={{ width: '100%', height: 260 }}>
+              <ResponsiveContainer>
+                <BarChart data={evidenceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" tick={{ fontSize: 12 }} />
+                  <YAxis stroke="rgba(255,255,255,0.4)" />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                    contentStyle={{
+                      backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
+                  />
+                  <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recent Activity */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-lg)' }}>
+        {/* Latest Evidence */}
+        <div className="glass-card-static">
+          <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-lg)', paddingBottom: 'var(--space-sm)', borderBottom: '1px solid var(--glass-border)' }}>
+            Latest Evidence
+          </h3>
+          {summary.recent?.evidence?.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+              {summary.recent.evidence.map((ev: any) => (
+                <div key={ev.id} style={{ padding: 'var(--space-sm) 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="font-semibold text-base">{ev.evidenceNumber}</span>
+                    <span className="text-sm text-tertiary">{new Date(ev.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="text-sm text-secondary" style={{ marginTop: '2px' }}>{ev.title}</div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-secondary text-sm">No recent evidence.</p>}
         </div>
 
-        {/* Recent Activity Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Latest Evidence</h3>
-            {summary.recent?.evidence?.length > 0 ? (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {summary.recent.evidence.map((ev: any) => (
-                  <li key={ev.id} style={{ marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong>{ev.evidenceNumber}</strong>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{new Date(ev.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{ev.title}</div>
-                  </li>
-                ))}
-              </ul>
-            ) : <p style={{ color: 'var(--text-secondary)' }}>No recent evidence.</p>}
-          </div>
-
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Latest Custody Events</h3>
-            {summary.recent?.custodyEvents?.length > 0 ? (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {summary.recent.custodyEvents.map((ce: any) => (
-                  <li key={ce.id} style={{ marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong style={{ color: '#fbbf24' }}>{ce.action.replace(/_/g, ' ')}</strong>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{new Date(ce.eventTime).toLocaleDateString()}</span>
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                      From: {ce.fromPerson} &rarr; To: {ce.toPerson}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : <p style={{ color: 'var(--text-secondary)' }}>No recent custody events.</p>}
-          </div>
-
-          <div className="glass-panel" style={{ padding: '1.5rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Latest Audit Logs</h3>
-            {summary.recent?.auditLogs?.length > 0 ? (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                {summary.recent.auditLogs.map((log: any) => (
-                  <li key={log.id} style={{ marginBottom: '0.75rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong style={{ color: '#a78bfa' }}>{log.action.replace(/_/g, ' ')}</strong>
-                      <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{new Date(log.timestamp).toLocaleDateString()}</span>
-                    </div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                      {log.entityType || 'System'}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : <p style={{ color: 'var(--text-secondary)' }}>No recent audit logs.</p>}
-          </div>
+        {/* Latest Custody Events */}
+        <div className="glass-card-static">
+          <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-lg)', paddingBottom: 'var(--space-sm)', borderBottom: '1px solid var(--glass-border)' }}>
+            Latest Custody Events
+          </h3>
+          {summary.recent?.custodyEvents?.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+              {summary.recent.custodyEvents.map((ce: any) => (
+                <div key={ce.id} style={{ padding: 'var(--space-sm) 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="badge badge-yellow">{ce.action.replace(/_/g, ' ')}</span>
+                    <span className="text-sm text-tertiary">{new Date(ce.eventTime).toLocaleDateString()}</span>
+                  </div>
+                  <div className="text-sm text-secondary" style={{ marginTop: '4px' }}>
+                    From: {ce.fromPerson} → To: {ce.toPerson}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-secondary text-sm">No recent custody events.</p>}
         </div>
 
+        {/* Latest Audit Logs */}
+        <div className="glass-card-static">
+          <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-lg)', paddingBottom: 'var(--space-sm)', borderBottom: '1px solid var(--glass-border)' }}>
+            Latest Audit Logs
+          </h3>
+          {summary.recent?.auditLogs?.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+              {summary.recent.auditLogs.map((log: any) => (
+                <div key={log.id} style={{ padding: 'var(--space-sm) 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span className="badge badge-purple">{log.action.replace(/_/g, ' ')}</span>
+                    <span className="text-sm text-tertiary">{new Date(log.timestamp).toLocaleDateString()}</span>
+                  </div>
+                  <div className="text-sm text-secondary" style={{ marginTop: '4px' }}>
+                    {log.entityType || 'System'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-secondary text-sm">No recent audit logs.</p>}
+        </div>
       </div>
     </div>
   );

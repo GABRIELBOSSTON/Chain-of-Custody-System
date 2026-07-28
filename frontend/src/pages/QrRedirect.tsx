@@ -31,18 +31,21 @@ export default function QrRedirect() {
   }, [searchParams, navigate]);
 
   return (
-    <div className="centered-page">
-      <div className="auth-container glass-panel" style={{ textAlign: 'center' }}>
-        <h2 style={{ color: 'var(--text-primary)' }}>Processing QR Code...</h2>
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '460px', margin: 'var(--space-3xl) auto', textAlign: 'center' }}>
+      <div className="glass-panel">
+        <h2 className="page-title" style={{ marginBottom: 'var(--space-lg)' }}>Processing QR Code</h2>
         {error ? (
-          <p className="error-message" style={{ marginTop: '1rem' }}>{error}</p>
+          <>
+            <div className="error-message">{error}</div>
+            <button onClick={() => navigate('/dashboard')} className="btn-primary btn-full mt-4">
+              Back to Dashboard
+            </button>
+          </>
         ) : (
-          <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>Decrypting secure payload, please wait...</p>
-        )}
-        {error && (
-          <button onClick={() => navigate('/dashboard')} className="btn-primary" style={{ marginTop: '2rem' }}>
-            Back to Dashboard
-          </button>
+          <div className="loading-state" style={{ padding: 'var(--space-lg)' }}>
+            <div className="spinner" />
+            <p className="text-secondary">Decrypting secure payload, please wait...</p>
+          </div>
         )}
       </div>
     </div>

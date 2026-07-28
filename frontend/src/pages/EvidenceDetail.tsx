@@ -56,9 +56,16 @@ export default function EvidenceDetail() {
     verifyHash();
   }, [id]);
 
-  if (loading) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Loading details...</div>;
-  if (error) return <div className="error-message" style={{ margin: '2rem' }}>{error}</div>;
-  if (!evidence) return <div style={{ padding: '2rem', color: 'var(--text-primary)' }}>Evidence not found.</div>;
+  if (loading) {
+    return (
+      <div className="loading-state">
+        <div className="spinner" />
+        <span>Loading details...</span>
+      </div>
+    );
+  }
+  if (error) return <div className="error-message">{error}</div>;
+  if (!evidence) return <div className="loading-state"><span className="text-secondary">Evidence not found.</span></div>;
 
   const attachment = evidence.attachments && evidence.attachments.length > 0 ? evidence.attachments[0] : null;
   const hash = evidence.hashes && evidence.hashes.length > 0 ? evidence.hashes[0] : null;
@@ -73,8 +80,6 @@ export default function EvidenceDetail() {
   };
 
   const isImage = attachment && attachment.mimeType.startsWith('image/');
-  
-  // Assuming the backend runs on localhost:3000 where our api is pointing
   const backendUrl = api.defaults.baseURL?.replace('/api/v1', '') || 'http://localhost:3000';
   const fileUrl = attachment ? `${backendUrl}${attachment.filePath}` : '';
 
@@ -144,165 +149,180 @@ export default function EvidenceDetail() {
   const isLocked = isArchived || isProsecution || (isInCourt && !overrideLock);
   const showOverride = isInCourt && isSuperAdmin;
 
+  const getTimelineDotColor = (action: string) => {
+    if (action === 'COURT_SUBMISSION') return 'var(--color-warning)';
+    if (action === 'EXTERNAL_TRANSFER') return 'var(--color-purple)';
+    if (action === 'HANDOVER_DISPATCH') return 'var(--color-accent)';
+    if (action === 'HANDOVER_ACK') return 'var(--color-success)';
+    return 'var(--color-accent)';
+  };
+
   return (
-    <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem', paddingBottom: '4rem' }}>
-      <div className="auth-container glass-panel" style={{ maxWidth: '800px', width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 className="auth-title" style={{ textAlign: 'left', marginBottom: '0' }}>Evidence Details</h1>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            {showOverride && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontWeight: 'bold' }}>
-                <input type="checkbox" checked={overrideLock} onChange={(e) => setOverrideLock(e.target.checked)} />
-                Override Court Lock
-              </label>
-            )}
-            {!isLocked && (
-              <>
-                <Link to={`/evidences/edit/${id}${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ background: '#3b82f6', textDecoration: 'none', padding: '0.5rem 1rem' }}>
-                  Edit
-                </Link>
-                {isSuperAdmin && (
-                  <button onClick={handleDelete} className="btn-primary" style={{ background: '#ef4444', border: 'none', padding: '0.5rem 1rem' }}>
-                    Delete
-                  </button>
-                )}
-              </>
-            )}
-            <Link to="/evidences" className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textDecoration: 'none', padding: '0.5rem 1rem' }}>
-              Back to List
-            </Link>
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '860px' }}>
+      {/* Header */}
+      <div className="page-header">
+        <h1 className="page-title">Evidence Details</h1>
+        <div className="btn-group">
+          {showOverride && (
+            <label className="checkbox-wrapper" style={{ color: 'var(--color-danger)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+              <input type="checkbox" checked={overrideLock} onChange={(e) => setOverrideLock(e.target.checked)} />
+              Override Court Lock
+            </label>
+          )}
+          {!isLocked && (
+            <>
+              <Link to={`/evidences/edit/${id}${overrideLock ? '?override=true' : ''}`} className="btn-primary btn-sm">
+                Edit
+              </Link>
+              {isSuperAdmin && (
+                <button onClick={handleDelete} className="btn-danger btn-sm">Delete</button>
+              )}
+            </>
+          )}
+          <Link to="/evidences" className="btn-secondary btn-sm">
+            Back to List
+          </Link>
+        </div>
+      </div>
+
+      {/* Handover Pending Banner */}
+      {isIntendedRecipient && (
+        <div className="glass-inset animate-slide-up" style={{ marginBottom: 'var(--space-xl)', borderColor: 'rgba(234, 179, 8, 0.3)', background: 'var(--color-warning-soft)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+            <div>
+              <h3 style={{ color: 'var(--color-warning)', margin: 0, fontSize: 'var(--font-size-lg)' }}>Handover Pending</h3>
+              <p className="text-secondary text-sm" style={{ margin: '4px 0 0 0' }}>You have been assigned as the new custodian.</p>
+            </div>
+            <div className="btn-group">
+              <button onClick={handleAcceptHandover} className="btn-success btn-sm">Accept</button>
+              <button onClick={handleRejectHandover} className="btn-danger btn-sm">Reject</button>
+            </div>
           </div>
         </div>
+      )}
 
-        {isIntendedRecipient && (
-          <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid #eab308', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ color: '#eab308', margin: 0, fontSize: '1.1rem' }}>Handover Pending</h3>
-              <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>You have been assigned as the new custodian.</p>
-            </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={handleAcceptHandover} className="btn-primary" style={{ background: '#10b981', borderColor: '#10b981', padding: '0.5rem 1rem', width: 'auto' }}>Accept</button>
-              <button onClick={handleRejectHandover} className="btn-primary" style={{ background: '#ef4444', borderColor: '#ef4444', padding: '0.5rem 1rem', width: 'auto' }}>Reject</button>
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+      {/* Evidence Info */}
+      <div className="glass-panel" style={{ marginBottom: 'var(--space-xl)' }}>
+        <div className="detail-grid">
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Evidence Number</p>
-            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{evidence.evidenceNumber}</p>
+            <p className="detail-field-label">Evidence Number</p>
+            <p className="detail-field-value font-semibold">{evidence.evidenceNumber}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Associated Case</p>
-            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{evidence.case?.caseNumber || 'Unknown'}</p>
+            <p className="detail-field-label">Associated Case</p>
+            <p className="detail-field-value font-semibold">{evidence.case?.caseNumber || 'Unknown'}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Title</p>
-            <p style={{ fontSize: '1.1rem' }}>{evidence.title}</p>
+            <p className="detail-field-label">Title</p>
+            <p className="detail-field-value">{evidence.title}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Category</p>
-            <p style={{ fontSize: '1.1rem' }}>{evidence.category}</p>
+            <p className="detail-field-label">Category</p>
+            <p className="detail-field-value">{evidence.category}</p>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Description</p>
-            <p style={{ fontSize: '1rem', whiteSpace: 'pre-wrap' }}>{evidence.description || 'No description provided.'}</p>
+            <p className="detail-field-label">Description</p>
+            <p className="detail-field-value pre-wrap">{evidence.description || 'No description provided.'}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Status</p>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <span className="role-badge">{evidence.status.replace(/_/g, ' ')}</span>
-              {isArchived && <span style={{ background: 'rgba(156,163,175,0.2)', color: '#9ca3af', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>ARCHIVED</span>}
-              {isLocked && !isArchived && <span style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>READ ONLY</span>}
+            <p className="detail-field-label">Status</p>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', marginTop: '2px' }}>
+              <span className="badge badge-blue">{evidence.status.replace(/_/g, ' ')}</span>
+              {isArchived && <span className="badge badge-gray">ARCHIVED</span>}
+              {isLocked && !isArchived && <span className="badge badge-red">READ ONLY</span>}
             </div>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Ready for Transfer</p>
-            <p style={{ fontSize: '1rem' }}>{evidence.isReadyForTransfer ? 'Yes' : 'No'}</p>
+            <p className="detail-field-label">Ready for Transfer</p>
+            <p className="detail-field-value">{evidence.isReadyForTransfer ? 'Yes' : 'No'}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Collection Location</p>
-            <p style={{ fontSize: '1rem' }}>{evidence.collectionLocation}</p>
+            <p className="detail-field-label">Collection Location</p>
+            <p className="detail-field-value">{evidence.collectionLocation}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Legacy Storage Location</p>
-            <p style={{ fontSize: '1rem' }}>{evidence.storageLocation || 'N/A'}</p>
+            <p className="detail-field-label">Legacy Storage Location</p>
+            <p className="detail-field-value">{evidence.storageLocation || 'N/A'}</p>
           </div>
         </div>
 
-        {/* Legal Authority Section */}
-        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Legal Authority</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Warrant Number</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.warrantNumber || 'N/A'}</p>
-            </div>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Consent Reference</p>
-              <p style={{ fontSize: '1rem' }}>{evidence.consentReference || 'N/A'}</p>
-            </div>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Seizure Authorization</p>
-              <p style={{ fontSize: '1rem' }}>{evidence.seizureAuth || 'N/A'}</p>
-            </div>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Legal Basis</p>
-              <p style={{ fontSize: '1rem' }}>{evidence.legalBasis || 'N/A'}</p>
+        {/* Legal Authority */}
+        <div className="detail-section">
+          <h2 className="detail-section-title">Legal Authority</h2>
+          <div className="glass-inset">
+            <div className="detail-grid">
+              <div>
+                <p className="detail-field-label">Warrant Number</p>
+                <p className="detail-field-value font-semibold">{evidence.warrantNumber || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="detail-field-label">Consent Reference</p>
+                <p className="detail-field-value">{evidence.consentReference || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="detail-field-label">Seizure Authorization</p>
+                <p className="detail-field-value">{evidence.seizureAuth || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="detail-field-label">Legal Basis</p>
+                <p className="detail-field-value">{evidence.legalBasis || 'N/A'}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Physical Storage Tracking */}
-        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Physical Storage Tracking</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Building</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageBuilding || 'N/A'}</p>
-            </div>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Room</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageRoom || 'N/A'}</p>
-            </div>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Cabinet</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageCabinet || 'N/A'}</p>
-            </div>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Shelf</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageShelf || 'N/A'}</p>
-            </div>
-            <div>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Locker</p>
-              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageLocker || 'N/A'}</p>
+        {/* Physical Storage */}
+        <div className="detail-section">
+          <h2 className="detail-section-title">Physical Storage Tracking</h2>
+          <div className="glass-inset">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-lg)' }}>
+              <div>
+                <p className="detail-field-label">Building</p>
+                <p className="detail-field-value font-semibold">{evidence.storageBuilding || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="detail-field-label">Room</p>
+                <p className="detail-field-value font-semibold">{evidence.storageRoom || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="detail-field-label">Cabinet</p>
+                <p className="detail-field-value font-semibold">{evidence.storageCabinet || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="detail-field-label">Shelf</p>
+                <p className="detail-field-value font-semibold">{evidence.storageShelf || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="detail-field-label">Locker</p>
+                <p className="detail-field-value font-semibold">{evidence.storageLocker || 'N/A'}</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Hierarchy Tree */}
-        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Hierarchy Tree</h2>
-          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+        <div className="detail-section">
+          <h2 className="detail-section-title">Hierarchy Tree</h2>
+          <div className="glass-inset">
             {evidence.parent ? (
-              <div style={{ marginBottom: '1rem' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Parent Evidence</p>
-                <Link to={`/evidences/${evidence.parent.id}/detail`} style={{ color: 'var(--accent-color)', textDecoration: 'none', fontWeight: 600 }}>
-                  {evidence.parent.evidenceNumber} - {evidence.parent.title}
+              <div style={{ marginBottom: 'var(--space-md)' }}>
+                <p className="detail-field-label">Parent Evidence</p>
+                <Link to={`/evidences/${evidence.parent.id}/detail`} className="auth-link font-semibold">
+                  {evidence.parent.evidenceNumber} — {evidence.parent.title}
                 </Link>
               </div>
             ) : (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>No Parent (Top Level Evidence)</p>
+              <p className="detail-field-label" style={{ marginBottom: 'var(--space-md)' }}>No Parent (Top Level Evidence)</p>
             )}
 
             {evidence.children && evidence.children.length > 0 && (
               <div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Child Evidences</p>
-                <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                <p className="detail-field-label" style={{ marginBottom: 'var(--space-sm)' }}>Child Evidences</p>
+                <ul style={{ margin: 0, paddingLeft: 'var(--space-lg)' }}>
                   {evidence.children.map((child: any) => (
-                    <li key={child.id} style={{ marginBottom: '0.25rem' }}>
-                      <Link to={`/evidences/${child.id}/detail`} style={{ color: 'var(--accent-color)', textDecoration: 'none' }}>
-                        {child.evidenceNumber} - {child.title}
+                    <li key={child.id} style={{ marginBottom: '4px' }}>
+                      <Link to={`/evidences/${child.id}/detail`} className="auth-link">
+                        {child.evidenceNumber} — {child.title}
                       </Link>
                     </li>
                   ))}
@@ -310,254 +330,236 @@ export default function EvidenceDetail() {
               </div>
             )}
             {(!evidence.children || evidence.children.length === 0) && (
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No Child Evidences</p>
+              <p className="detail-field-label">No Child Evidences</p>
             )}
           </div>
         </div>
+      </div>
 
-        {/* Attachment Section */}
-        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Attachment</h2>
-          {attachment ? (
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.25rem' }}>{attachment.fileName}</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                    {formatFileSize(attachment.fileSize)} • {attachment.mimeType}
-                  </p>
-                </div>
-                <a 
-                  href={fileUrl} 
-                  download={attachment.fileName}
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="btn-primary" 
-                  style={{ textDecoration: 'none' }}
-                >
-                  Download
-                </a>
-              </div>
-              
-              {isImage && (
-                <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
-                  <img 
-                    src={fileUrl} 
-                    alt={attachment.fileName} 
-                    style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', border: '1px solid var(--glass-border)' }}
-                  />
-                </div>
-              )}
-            </div>
-          ) : (
-            <p style={{ color: 'var(--text-secondary)' }}>No file attached to this evidence.</p>
-          )}
-        </div>
-
-        {/* Digital Integrity Section */}
-        {hash && (
-          <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 600 }}>Digital Integrity (SHA-256)</h2>
-              {integrityStatus && integrityStatus !== 'N/A' && (
-                <span style={{
-                  padding: '0.25rem 0.75rem',
-                  borderRadius: '4px',
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  background: integrityStatus === 'VERIFIED' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                  color: integrityStatus === 'VERIFIED' ? '#10b981' : '#ef4444'
-                }}>
-                  {integrityStatus === 'VERIFIED' ? 'Integrity Verified' : 'Integrity Failed'}
-                </span>
-              )}
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                  Generated At: {new Date(hash.generatedAt).toLocaleString()}
+      {/* Attachment */}
+      <div className="glass-panel" style={{ marginBottom: 'var(--space-xl)' }}>
+        <h2 className="detail-section-title" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>Attachment</h2>
+        {attachment ? (
+          <div className="glass-inset">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+              <div>
+                <p className="font-semibold text-md" style={{ marginBottom: '2px' }}>{attachment.fileName}</p>
+                <p className="text-secondary text-sm">
+                  {formatFileSize(attachment.fileSize)} • {attachment.mimeType}
                 </p>
-                <code style={{ fontSize: '1rem', color: 'var(--accent-color)', wordBreak: 'break-all' }}>
-                  {hash.hashValue}
-                </code>
-              </div>
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText(hash.hashValue);
-                  alert('Hash copied to clipboard!');
-                }}
-                className="btn-primary"
-                style={{ marginLeft: '1rem', width: 'auto', background: 'transparent', border: '1px solid var(--glass-border)' }}
-              >
-                Copy Hash
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* QR Code Section */}
-        {qrCode && qrCode.qrPayload && (
-          <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Internal Tracking (QR Code)</h2>
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                <img 
-                  src={qrCode.qrPayload} 
-                  alt="Evidence QR Code" 
-                  style={{ width: '120px', height: '120px', borderRadius: '4px', border: '1px solid var(--glass-border)', background: 'white', padding: '0.5rem' }}
-                />
-                <div>
-                  <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.25rem' }}>Evidence ID</p>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', wordBreak: 'break-all' }}>
-                    {evidence.id}
-                  </p>
-                </div>
               </div>
               <a 
-                href={qrCode.qrPayload} 
-                download={`qr-${evidence.evidenceNumber}.png`}
-                className="btn-primary"
-                style={{ width: 'auto', background: 'transparent', border: '1px solid var(--glass-border)', textDecoration: 'none' }}
+                href={fileUrl} 
+                download={attachment.fileName}
+                target="_blank" 
+                rel="noreferrer"
+                className="btn-primary btn-sm"
               >
-                Download QR
+                Download
               </a>
             </div>
-          </div>
-        )}
-
-        {/* Chain of Custody Section */}
-        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Chain of Custody History</h2>
-            {!isLocked && (
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <Link to={`/evidences/${id}/custody/new${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ textDecoration: 'none', width: 'auto', padding: '0.5rem 1rem' }}>
-                  + Transfer Custody
-                </Link>
-                <Link to={`/evidences/${id}/custody/external${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ background: '#8b5cf6', borderColor: '#8b5cf6', textDecoration: 'none', width: 'auto', padding: '0.5rem 1rem' }}>
-                  + External Transfer
-                </Link>
-                <Link to={`/evidences/${id}/court/new${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ background: '#eab308', borderColor: '#eab308', textDecoration: 'none', width: 'auto', padding: '0.5rem 1rem', color: '#1a1a1a' }}>
-                  + Court Presentation
-                </Link>
+            
+            {isImage && (
+              <div style={{ marginTop: 'var(--space-lg)', textAlign: 'center' }}>
+                <img 
+                  src={fileUrl} 
+                  alt={attachment.fileName} 
+                  style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: 'var(--radius-md)', border: '1px solid var(--glass-border)' }}
+                />
               </div>
             )}
           </div>
-          
-          {custodyEvents.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingLeft: '1.5rem', borderLeft: '2px solid var(--glass-border)', marginLeft: '0.5rem', position: 'relative' }}>
-              {custodyEvents.map((event) => (
-                <div key={event.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)', position: 'relative' }}>
-                  {/* Timeline Dot */}
-                  <div style={{
-                    position: 'absolute',
-                    left: '-2.15rem',
-                    top: '1.5rem',
-                    width: '1.1rem',
-                    height: '1.1rem',
-                    background: event.action === 'COURT_SUBMISSION' ? '#eab308' : event.action === 'EXTERNAL_TRANSFER' ? '#8b5cf6' : '#6366f1',
-                    borderRadius: '50%',
-                    border: '4px solid #1a1a1a'
-                  }}></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <span style={{ 
-                        background: 'rgba(99, 102, 241, 0.2)', 
-                        color: '#818cf8', 
-                        padding: '0.2rem 0.6rem', 
-                        borderRadius: '4px', 
-                        fontSize: '0.8rem',
-                        fontWeight: 600
-                      }}>
+        ) : (
+          <p className="text-secondary">No file attached to this evidence.</p>
+        )}
+      </div>
+
+      {/* Digital Integrity */}
+      {hash && (
+        <div className="glass-panel" style={{ marginBottom: 'var(--space-xl)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+            <h2 className="detail-section-title" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none', marginBottom: 0 }}>Digital Integrity (SHA-256)</h2>
+            {integrityStatus && integrityStatus !== 'N/A' && (
+              <span className={`badge ${integrityStatus === 'VERIFIED' ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 'var(--font-size-sm)', padding: '0.3rem 0.75rem' }}>
+                {integrityStatus === 'VERIFIED' ? '✓ Integrity Verified' : '✗ Integrity Failed'}
+              </span>
+            )}
+          </div>
+          <div className="glass-inset" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+            <div style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
+              <p className="detail-field-label">
+                Generated At: {new Date(hash.generatedAt).toLocaleString()}
+              </p>
+              <code style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-accent)', wordBreak: 'break-all', lineHeight: 1.6 }}>
+                {hash.hashValue}
+              </code>
+            </div>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(hash.hashValue);
+                alert('Hash copied to clipboard!');
+              }}
+              className="btn-secondary btn-sm"
+            >
+              Copy Hash
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code */}
+      {qrCode && qrCode.qrPayload && (
+        <div className="glass-panel" style={{ marginBottom: 'var(--space-xl)' }}>
+          <h2 className="detail-section-title" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>Internal Tracking (QR Code)</h2>
+          <div className="glass-inset" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-lg)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-lg)' }}>
+              <img 
+                src={qrCode.qrPayload} 
+                alt="Evidence QR Code" 
+                style={{
+                  width: '100px',
+                  height: '100px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--glass-border)',
+                  background: 'white',
+                  padding: '6px'
+                }}
+              />
+              <div>
+                <p className="font-semibold text-md" style={{ marginBottom: '2px' }}>Evidence ID</p>
+                <p className="text-secondary text-sm break-all">{evidence.id}</p>
+              </div>
+            </div>
+            <a 
+              href={qrCode.qrPayload} 
+              download={`qr-${evidence.evidenceNumber}.png`}
+              className="btn-secondary btn-sm"
+            >
+              Download QR
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Chain of Custody Timeline */}
+      <div className="glass-panel" style={{ marginBottom: 'var(--space-xl)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-xl)', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+          <h2 className="detail-section-title" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none', marginBottom: 0 }}>Chain of Custody History</h2>
+          {!isLocked && (
+            <div className="btn-group">
+              <Link to={`/evidences/${id}/custody/new${overrideLock ? '?override=true' : ''}`} className="btn-primary btn-sm">
+                + Transfer
+              </Link>
+              <Link to={`/evidences/${id}/custody/external${overrideLock ? '?override=true' : ''}`} className="btn-purple btn-sm">
+                + External
+              </Link>
+              <Link to={`/evidences/${id}/court/new${overrideLock ? '?override=true' : ''}`} className="btn-warning btn-sm">
+                + Court
+              </Link>
+            </div>
+          )}
+        </div>
+        
+        {custodyEvents.length > 0 ? (
+          <div className="timeline">
+            {custodyEvents.map((event) => (
+              <div key={event.id} className="timeline-item">
+                <div className="timeline-dot" style={{ background: getTimelineDotColor(event.action) }} />
+                <div className="timeline-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-md)', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
+                    <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span className="badge badge-blue">
                         {event.action.replace(/_/g, ' ')}
                       </span>
                       {(event as any).isOverdue && (
-                        <span style={{ 
-                          background: 'rgba(239, 68, 68, 0.2)', 
-                          color: '#ef4444', 
-                          padding: '0.2rem 0.6rem', 
-                          borderRadius: '4px', 
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          animation: 'pulse 2s infinite'
-                        }}>
+                        <span className="badge badge-red" style={{ animation: 'pulse 2s infinite' }}>
                           ESCALATED (OVERDUE)
                         </span>
                       )}
                     </div>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                    <span className="text-sm text-tertiary">
                       {new Date(event.eventTime).toLocaleString()}
                     </span>
                   </div>
                   
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                  <div className="detail-grid" style={{ marginBottom: 'var(--space-md)' }}>
                     <div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>From Person</p>
-                      <p style={{ fontSize: '0.95rem' }}>{event.actor?.policeProfile?.fullName || event.actor?.email || 'Unknown'}</p>
+                      <p className="detail-field-label">From Person</p>
+                      <p className="text-base">{event.actor?.policeProfile?.fullName || event.actor?.email || 'Unknown'}</p>
                     </div>
                     <div>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>To Person</p>
+                      <p className="detail-field-label">To Person</p>
                       {event.action === 'EXTERNAL_TRANSFER' ? (
-                        <p style={{ fontSize: '0.95rem' }}>
-                          {event.externalRecipientName} <br/>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>({event.externalOrganization})</span>
+                        <p className="text-base">
+                          {event.externalRecipientName}
+                          <span className="text-sm text-secondary" style={{ display: 'block' }}>({event.externalOrganization})</span>
                         </p>
                       ) : (
-                        <p style={{ fontSize: '0.95rem' }}>{event.recipient ? (event.recipient.policeProfile?.fullName || event.recipient.email) : 'N/A'}</p>
+                        <p className="text-base">{event.recipient ? (event.recipient.policeProfile?.fullName || event.recipient.email) : 'N/A'}</p>
                       )}
                     </div>
                     <div style={{ gridColumn: '1 / -1' }}>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Location</p>
-                      <p style={{ fontSize: '0.95rem' }}>{event.location}</p>
+                      <p className="detail-field-label">Location</p>
+                      <p className="text-base">{event.location}</p>
                     </div>
                   </div>
 
                   {event.action === 'EXTERNAL_TRANSFER' && event.transferReason && (
-                    <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '1rem', marginBottom: '1rem' }}>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Transfer Reason</p>
-                      <p style={{ fontSize: '0.9rem' }}>{event.transferReason}</p>
+                    <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
+                      <p className="detail-field-label">Transfer Reason</p>
+                      <p className="text-sm">{event.transferReason}</p>
                     </div>
                   )}
 
                   {event.notes && (
-                    <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '1rem' }}>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Notes</p>
-                      <p style={{ fontSize: '0.9rem', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>"{event.notes}"</p>
+                    <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: 'var(--space-md)' }}>
+                      <p className="detail-field-label">Notes</p>
+                      <p className="text-sm pre-wrap" style={{ fontStyle: 'italic' }}>"{event.notes}"</p>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '2rem 0' }}>No custody records found for this evidence.</p>
-          )}
-        </div>
-        {/* Pending Edit Approvals Section */}
-        {pendingApprovals.length > 0 && (
-          <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Pending Edit Requests</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {pendingApprovals.map((appr) => (
-                <div key={appr.id} style={{ background: 'rgba(234, 179, 8, 0.05)', padding: '1.5rem', borderRadius: '8px', border: '1px solid #eab308' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <p style={{ color: '#eab308', fontWeight: 600, marginBottom: '0.5rem' }}>Requested By: {appr.requestingUser?.email}</p>
-                      <pre style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', whiteSpace: 'pre-wrap', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '4px' }}>
-                        {JSON.stringify(appr.proposedData, null, 2)}
-                      </pre>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1rem', marginLeft: '1rem' }}>
-                      <button onClick={() => handleApprove(appr.id)} className="btn-primary" style={{ background: '#10b981', borderColor: '#10b981', padding: '0.5rem 1rem', width: 'auto' }}>Approve</button>
-                      <button onClick={() => handleReject(appr.id)} className="btn-primary" style={{ background: '#ef4444', borderColor: '#ef4444', padding: '0.5rem 1rem', width: 'auto' }}>Reject</button>
-                    </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="table-empty">No custody records found for this evidence.</div>
+        )}
+      </div>
+
+      {/* Pending Approvals */}
+      {pendingApprovals.length > 0 && (
+        <div className="glass-panel">
+          <h2 className="detail-section-title" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>Pending Edit Requests</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+            {pendingApprovals.map((appr) => (
+              <div key={appr.id} className="glass-inset" style={{ borderColor: 'rgba(234, 179, 8, 0.3)', background: 'var(--color-warning-soft)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-md)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ color: 'var(--color-warning)', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>
+                      Requested By: {appr.requestingUser?.email}
+                    </p>
+                    <pre style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: 'var(--font-size-sm)',
+                      whiteSpace: 'pre-wrap',
+                      background: 'rgba(0,0,0,0.2)',
+                      padding: 'var(--space-md)',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'auto'
+                    }}>
+                      {JSON.stringify(appr.proposedData, null, 2)}
+                    </pre>
+                  </div>
+                  <div className="btn-group" style={{ flexShrink: 0 }}>
+                    <button onClick={() => handleApprove(appr.id)} className="btn-success btn-sm">Approve</button>
+                    <button onClick={() => handleReject(appr.id)} className="btn-danger btn-sm">Reject</button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        )}
-
-      </div>
+        </div>
+      )}
     </div>
   );
 }

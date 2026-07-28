@@ -45,42 +45,94 @@ export default function Login() {
   };
 
   return (
-    <div className="centered-page">
-      <div className="auth-container glass-panel">
-        <h1 className="auth-title">Chain of Custody</h1>
-        <p className="auth-subtitle">Welcome back! Please login to your account.</p>
-        
-        {error && <div className="error-message">{error}</div>}
+    <div className="auth-page">
+      <div className="auth-container">
+        <div className="glass-panel animate-scale-in">
+          {/* Brand */}
+          <div className="auth-logo">
+            <div className="auth-logo-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+          </div>
 
-        {step === 1 ? (
-          <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <label className="input-label">Email Address</label>
-              <input type="email" className="input-field" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            
-            <div className="form-group">
-              <label className="input-label">Password</label>
-              <input type="password" className="input-field" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-
-            <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Verifying...' : 'Sign In'}</button>
-          </form>
-        ) : (
-          <form onSubmit={handleMfa}>
-            <div className="form-group">
-              <label className="input-label">6-Digit Google Authenticator Code</label>
-              <input type="text" className="input-field" value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} required minLength={6} maxLength={6} />
-            </div>
-            <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Verifying...' : 'Verify MFA'}</button>
-          </form>
-        )}
-        
-        {step === 1 && (
-          <p className="text-center mt-4 text-sm text-secondary">
-            Unactivated Account? <Link to="/activation" className="auth-link">Activate Here</Link>
+          <h1 className="auth-title">Chain of Custody</h1>
+          <p className="auth-subtitle">
+            {step === 1
+              ? 'Sign in to your secure account'
+              : 'Enter your authentication code'
+            }
           </p>
-        )}
+
+          {/* Step Indicator */}
+          <div className="steps-indicator">
+            <div className={`step-dot ${step >= 1 ? 'active' : ''} ${step > 1 ? 'completed' : ''}`} />
+            <div className={`step-line ${step > 1 ? 'completed' : ''}`} />
+            <div className={`step-dot ${step >= 2 ? 'active' : ''}`} />
+          </div>
+          
+          {error && <div className="error-message">{error}</div>}
+
+          {step === 1 ? (
+            <form onSubmit={handleLogin} className="animate-fade-in">
+              <div className="form-group">
+                <label className="input-label">Email Address</label>
+                <input
+                  type="email"
+                  className="input-field"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="officer@department.gov"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label className="input-label">Password</label>
+                <input
+                  type="password"
+                  className="input-field"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn-primary btn-full btn-lg" disabled={loading}>
+                {loading ? 'Verifying...' : 'Sign In'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleMfa} className="animate-fade-in">
+              <div className="form-group">
+                <label className="input-label">6-Digit Google Authenticator Code</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  placeholder="000000"
+                  required
+                  minLength={6}
+                  maxLength={6}
+                  style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5em' }}
+                />
+              </div>
+              <button type="submit" className="btn-primary btn-full btn-lg" disabled={loading}>
+                {loading ? 'Verifying...' : 'Verify MFA'}
+              </button>
+            </form>
+          )}
+          
+          {step === 1 && (
+            <p className="text-center mt-4 text-sm text-secondary">
+              Unactivated Account?{' '}
+              <Link to="/activation" className="auth-link">Activate Here</Link>
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

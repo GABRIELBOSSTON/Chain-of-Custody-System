@@ -37,13 +37,57 @@ export class ReportsService {
       this.prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 5, select: auditLogSelect })
     ]);
 
+    // Process escalations and calculate handover stats
+    const evidencesWithPending = await this.prisma.evidence.findMany({
+      where: { deletedAt: null },
+      include: {
+        custodyEvents: {
+          orderBy: { eventTime: 'desc' },
+          take: 1
+        }
+      }
+    });
+
+    let pendingHandoversCount = 0;
+    let overdueHandoversCount = 0;
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+    for (const ev of evidencesWithPending) {
+      if (ev.custodyEvents.length > 0) {
+        const latestEvent = ev.custodyEvents[0];
+        if (latestEvent.action === 'HANDOVER_DISPATCH') {
+          pendingHandoversCount++;
+          if (latestEvent.eventTime < threeDaysAgo) {
+            overdueHandoversCount++;
+            
+            // Check if escalated log exists
+            const existingLog = await this.prisma.auditLog.findFirst({
+              where: { action: 'ESCALATION_TRIGGERED', entityId: ev.id }
+            });
+            if (!existingLog) {
+              await this.prisma.auditLog.create({
+                data: {
+                  action: 'ESCALATION_TRIGGERED',
+                  entityId: ev.id,
+                  entityType: 'Evidence',
+                  description: `Handover escalation triggered for evidence ${ev.evidenceNumber}`,
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+
     return {
       totals: {
         cases: totalCases,
         evidence: totalEvidence,
         custodyEvents: totalCustodyEvents,
         users: totalUsers,
-        auditLogs: totalAuditLogs
+        auditLogs: totalAuditLogs,
+        pendingHandovers: pendingHandoversCount,
+        overdueHandovers: overdueHandoversCount
       },
       charts: {
         casesByStatus,

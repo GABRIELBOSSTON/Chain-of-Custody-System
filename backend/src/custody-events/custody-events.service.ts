@@ -50,11 +50,36 @@ export class CustodyEventsService {
   }
 
   async findByEvidenceId(evidenceId: string) {
-    return this.prisma.custodyEvent.findMany({
+    const events = await this.prisma.custodyEvent.findMany({
       where: { evidenceId },
       select: custodyEventSelect,
       orderBy: { eventTime: 'asc' },
     });
+
+    if (events.length > 0) {
+      const latest = events[events.length - 1];
+      if (latest.action === 'HANDOVER_DISPATCH') {
+         const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+         if (new Date(latest.eventTime) < threeDaysAgo) {
+            const existingLog = await this.prisma.auditLog.findFirst({
+              where: { action: 'ESCALATION_TRIGGERED', entityId: evidenceId }
+            });
+            if (!existingLog) {
+              await this.prisma.auditLog.create({
+                data: {
+                  action: 'ESCALATION_TRIGGERED',
+                  entityId: evidenceId,
+                  entityType: 'Evidence',
+                  description: `Handover escalation triggered for evidence ${evidenceId}`,
+                }
+              });
+            }
+            (latest as any).isOverdue = true;
+         }
+      }
+    }
+
+    return events;
   }
 
   async dispatchHandover(evidenceId: string, recipientId: string, location: string, userId: string) {

@@ -74,6 +74,7 @@ export default function AuditLogsList() {
                   <th style={{ padding: '1rem', textAlign: 'left' }}>User</th>
                   <th style={{ padding: '1rem', textAlign: 'left' }}>Module</th>
                   <th style={{ padding: '1rem', textAlign: 'left' }}>Action</th>
+                  <th style={{ padding: '1rem', textAlign: 'left' }}>Hashes (Prev / New)</th>
                   <th style={{ padding: '1rem', textAlign: 'left' }}>Description</th>
                 </tr>
               </thead>
@@ -94,6 +95,14 @@ export default function AuditLogsList() {
                       </td>
                       <td style={{ padding: '1rem', fontWeight: 600 }}>
                         {log.action.replace(/_/g, ' ')}
+                      </td>
+                      <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        {log.previousHash ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <div title={log.previousHash} style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>Prev: {log.previousHash}</div>
+                            <div title={log.newHash} style={{ maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis' }}>New: {log.newHash}</div>
+                          </div>
+                        ) : '-'}
                       </td>
                       <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>
                         {log.description || '-'}

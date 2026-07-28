@@ -144,12 +144,12 @@ model Evidence {
   deletedAt          DateTime?          @map("deleted_at")
   category           EvidenceCategory
   collectionDate     DateTime           @map("collection_date")
-  collectionLocation String             @map("collection_location") @db.VarChar(255)
+  collectionLocation String             @map("collection_location") @db.Text
   evidenceNumber     String             @unique @map("evidence_number") @db.VarChar(100)
   isReadyForTransfer Boolean            @default(false) @map("is_ready_for_transfer")
   status             EvidenceStatus     @default(SEIZED)
-  storageLocation    String?            @map("storage_location") @db.VarChar(255)
-  title              String             @db.VarChar(255)
+  storageLocation    String?            @map("storage_location") @db.Text
+  title              String             @db.Text
   attachments        Attachment[]
   custodyEvents      CustodyEvent[]
   approvals          EvidenceApproval[]
@@ -225,9 +225,10 @@ model CustodyEvent {
   action      CustodyAction
   actorId     String        @map("actor_id") @db.Char(36)
   recipientId String?       @map("recipient_id") @db.Char(36)
-  location    String        @db.VarChar(255)
+  location    String        @db.Text
   eventTime   DateTime      @map("event_time")
   notes       String?       @db.Text
+  isOverdue   Boolean       @default(false) @map("is_overdue")
   actor       User          @relation("Actor", fields: [actorId], references: [id])
   evidence    Evidence      @relation(fields: [evidenceId], references: [id])
   recipient   User?         @relation("Recipient", fields: [recipientId], references: [id], onDelete: Restrict)
@@ -244,8 +245,10 @@ model AuditLog {
   action      String   @db.VarChar(255)
   entityId    String?  @map("entity_id") @db.Char(36)
   entityType  String?  @map("entity_type") @db.VarChar(50)
-  timestamp   DateTime @default(now())
-  description String?  @db.Text
+  timestamp    DateTime @default(now())
+  description  String?  @db.Text
+  previousHash String?  @map("previous_hash") @db.VarChar(255)
+  newHash      String?  @map("new_hash") @db.VarChar(255)
   user        User?    @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])

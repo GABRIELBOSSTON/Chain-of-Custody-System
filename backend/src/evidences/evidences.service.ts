@@ -50,13 +50,23 @@ export class EvidencesService {
 
     return this.prisma.$transaction(async (prisma) => {
       let dataDescription = createEvidenceDto.description;
-      if (dataDescription) {
-        dataDescription = encryptField(dataDescription) || undefined;
-      }
+      if (dataDescription) dataDescription = encryptField(dataDescription) || undefined;
+      
+      let dataTitle = createEvidenceDto.title;
+      if (dataTitle) dataTitle = encryptField(dataTitle) as string;
+
+      let dataCollectionLoc = createEvidenceDto.collectionLocation;
+      if (dataCollectionLoc) dataCollectionLoc = encryptField(dataCollectionLoc) as string;
+
+      let dataStorageLoc = createEvidenceDto.storageLocation;
+      if (dataStorageLoc) dataStorageLoc = encryptField(dataStorageLoc) || undefined;
 
       const newEvidence = await prisma.evidence.create({
         data: {
           ...createEvidenceDto,
+          title: dataTitle,
+          collectionLocation: dataCollectionLoc,
+          storageLocation: dataStorageLoc,
           description: dataDescription,
           status: createEvidenceDto.status || EvidenceStatus.SEIZED,
           collectionDate: new Date(createEvidenceDto.collectionDate),
@@ -137,8 +147,11 @@ export class EvidencesService {
         where: { id: newEvidence.id },
         select: evidenceSelect,
       });
-      if (ev && ev.description) {
-        ev.description = decryptField(ev.description) as string;
+      if (ev) {
+        if (ev.description) ev.description = decryptField(ev.description) as string;
+        if (ev.title) ev.title = decryptField(ev.title) as string;
+        if (ev.collectionLocation) ev.collectionLocation = decryptField(ev.collectionLocation) as string;
+        if (ev.storageLocation) ev.storageLocation = decryptField(ev.storageLocation) as string;
       }
       return ev;
     });
@@ -155,9 +168,10 @@ export class EvidencesService {
     });
 
     return evidences.map(ev => {
-      if (ev.description) {
-        ev.description = decryptField(ev.description) as string;
-      }
+      if (ev.description) ev.description = decryptField(ev.description) as string;
+      if (ev.title) ev.title = decryptField(ev.title) as string;
+      if (ev.collectionLocation) ev.collectionLocation = decryptField(ev.collectionLocation) as string;
+      if (ev.storageLocation) ev.storageLocation = decryptField(ev.storageLocation) as string;
       return ev;
     });
   }
@@ -174,6 +188,15 @@ export class EvidencesService {
 
     if (evidence.description) {
       evidence.description = decryptField(evidence.description) as string;
+    }
+    if (evidence.title) {
+      evidence.title = decryptField(evidence.title) as string;
+    }
+    if (evidence.collectionLocation) {
+      evidence.collectionLocation = decryptField(evidence.collectionLocation) as string;
+    }
+    if (evidence.storageLocation) {
+      evidence.storageLocation = decryptField(evidence.storageLocation) as string;
     }
 
     return evidence;
@@ -261,10 +284,13 @@ export class EvidencesService {
           requestedBy: userId,
           status: ApprovalStatus.PENDING,
           actionType: ApprovalActionType.EDIT,
-          proposedData: {
+          proposedData: JSON.stringify({
             ...updateEvidenceDto,
-            description: updateEvidenceDto.description ? encryptField(updateEvidenceDto.description) : undefined
-          },
+            description: updateEvidenceDto.description ? encryptField(updateEvidenceDto.description) : undefined,
+            title: updateEvidenceDto.title ? encryptField(updateEvidenceDto.title) : undefined,
+            collectionLocation: updateEvidenceDto.collectionLocation ? encryptField(updateEvidenceDto.collectionLocation) : undefined,
+            storageLocation: updateEvidenceDto.storageLocation !== undefined ? (updateEvidenceDto.storageLocation ? encryptField(updateEvidenceDto.storageLocation) : null) : undefined,
+          }),
         }
       });
       await this.prisma.auditLog.create({
@@ -284,8 +310,11 @@ export class EvidencesService {
       if (dataToUpdate.collectionDate) {
         dataToUpdate.collectionDate = new Date(dataToUpdate.collectionDate);
       }
-      if (dataToUpdate.description) {
-        dataToUpdate.description = encryptField(dataToUpdate.description) || undefined;
+      if (dataToUpdate.description) dataToUpdate.description = encryptField(dataToUpdate.description) || undefined;
+      if (dataToUpdate.title) dataToUpdate.title = encryptField(dataToUpdate.title) as string;
+      if (dataToUpdate.collectionLocation) dataToUpdate.collectionLocation = encryptField(dataToUpdate.collectionLocation) as string;
+      if (dataToUpdate.storageLocation !== undefined) {
+        dataToUpdate.storageLocation = dataToUpdate.storageLocation ? encryptField(dataToUpdate.storageLocation) : null;
       }
 
       const updated = await prisma.evidence.update({
@@ -294,9 +323,12 @@ export class EvidencesService {
         select: evidenceSelect,
       });
 
-      if (updated.description) {
-        updated.description = decryptField(updated.description) as string;
-      }
+      if (updated.description) updated.description = decryptField(updated.description) as string;
+      if (updated.title) updated.title = decryptField(updated.title) as string;
+      if (updated.collectionLocation) updated.collectionLocation = decryptField(updated.collectionLocation) as string;
+      if (updated.storageLocation) updated.storageLocation = decryptField(updated.storageLocation) as string;
+
+      const latestHash = await prisma.evidenceHash.findFirst({ where: { evidenceId: id }, orderBy: { generatedAt: 'desc' } });
 
       await prisma.auditLog.create({
         data: {
@@ -305,6 +337,8 @@ export class EvidencesService {
           entityId: id,
           entityType: 'Evidence',
           description: `Updated details for evidence ${updated.evidenceNumber}`,
+          previousHash: latestHash?.hashValue,
+          newHash: latestHash?.hashValue,
         }
       });
 
@@ -325,7 +359,10 @@ export class EvidencesService {
       throw new BadRequestException('Approval request not found or not pending');
     }
 
-    const proposedData = approval.proposedData as any;
+    let proposedData = approval.proposedData as any;
+    if (typeof proposedData === 'string') {
+      proposedData = JSON.parse(proposedData);
+    }
     if (proposedData.collectionDate) {
       proposedData.collectionDate = new Date(proposedData.collectionDate);
     }
@@ -337,14 +374,17 @@ export class EvidencesService {
         select: evidenceSelect,
       });
 
-      if (updatedEvidence.description) {
-        updatedEvidence.description = decryptField(updatedEvidence.description) as string;
-      }
+      if (updatedEvidence.description) updatedEvidence.description = decryptField(updatedEvidence.description) as string;
+      if (updatedEvidence.title) updatedEvidence.title = decryptField(updatedEvidence.title) as string;
+      if (updatedEvidence.collectionLocation) updatedEvidence.collectionLocation = decryptField(updatedEvidence.collectionLocation) as string;
+      if (updatedEvidence.storageLocation) updatedEvidence.storageLocation = decryptField(updatedEvidence.storageLocation) as string;
 
       await prisma.evidenceApproval.update({
         where: { id: approvalId },
         data: { status: ApprovalStatus.APPROVED, approvedBy: userId }
       });
+
+      const latestHash = await prisma.evidenceHash.findFirst({ where: { evidenceId: approval.evidenceId }, orderBy: { generatedAt: 'desc' } });
 
       await prisma.auditLog.create({
         data: {
@@ -352,7 +392,9 @@ export class EvidencesService {
           action: 'EDIT_APPROVED',
           entityId: approval.evidenceId,
           entityType: 'Evidence',
-          description: `Approved edit for evidence ${updatedEvidence.evidenceNumber}`,
+          description: `Approved edit request ${approval.id} for evidence ${updatedEvidence.evidenceNumber}`,
+          previousHash: latestHash?.hashValue,
+          newHash: latestHash?.hashValue,
         }
       });
 

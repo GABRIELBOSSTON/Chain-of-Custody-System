@@ -10,7 +10,8 @@ import { EvidencesModule } from './evidences/evidences.module';
 import { CustodyEventsModule } from './custody-events/custody-events.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { ReportsModule } from './reports/reports.module';
-
+import { ScheduleModule } from '@nestjs/schedule';
+import { EscalationsModule } from './escalations/escalations.module';
 
 @Module({
   imports: [
@@ -25,6 +26,8 @@ import { ReportsModule } from './reports/reports.module';
     CustodyEventsModule,
     AuditLogsModule,
     ReportsModule,
+    ScheduleModule.forRoot(),
+    EscalationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

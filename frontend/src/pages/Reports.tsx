@@ -52,7 +52,7 @@ export default function Reports() {
       case 'custody-events':
         return ['Event Time', 'Action', 'From Person', 'To Person', 'Notes'];
       case 'audit-logs':
-        return ['Date', 'Module', 'Action', 'Description'];
+        return ['Date', 'Module', 'Action', 'Previous Hash', 'Current Hash', 'Description'];
       default:
         return [];
     }
@@ -68,7 +68,7 @@ export default function Reports() {
         case 'custody-events':
           return [new Date(item.eventTime).toLocaleString(), item.action, item.fromPerson, item.toPerson, item.notes || '-'];
         case 'audit-logs':
-          return [new Date(item.timestamp).toLocaleString(), item.entityType || 'System', item.action, item.description || '-'];
+          return [new Date(item.timestamp).toLocaleString(), item.entityType || 'System', item.action, item.previousHash || '-', item.newHash || '-', item.description || '-'];
         default:
           return [];
       }

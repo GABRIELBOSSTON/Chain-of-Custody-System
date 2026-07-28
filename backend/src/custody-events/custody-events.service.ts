@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { encryptField, decryptField } from '../common/utils/crypto.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustodyEventDto } from './dto/create-custody-event.dto';
 import { custodyEventSelect } from './constants/custody-event-select';
@@ -17,8 +18,16 @@ export class CustodyEventsService {
       throw new NotFoundException(`Evidence with ID ${createCustodyEventDto.evidenceId} not found`);
     }
 
+    let dataLocation = createCustodyEventDto.location;
+    if (dataLocation) dataLocation = encryptField(dataLocation) as string;
+
+    let dataNotes = createCustodyEventDto.notes;
+    if (dataNotes) dataNotes = encryptField(dataNotes) || undefined;
+
     const eventData = {
       ...createCustodyEventDto,
+      location: dataLocation,
+      notes: dataNotes,
       eventTime: new Date(createCustodyEventDto.eventTime),
     };
 
@@ -38,15 +47,25 @@ export class CustodyEventsService {
         }
       });
 
+      if (newEvent.location) newEvent.location = decryptField(newEvent.location) as string;
+      if (newEvent.notes) newEvent.notes = decryptField(newEvent.notes) as string;
+
       return newEvent;
     });
   }
 
+  private decryptEventFields(event: any) {
+    if (event.location) event.location = decryptField(event.location) as string;
+    if (event.notes) event.notes = decryptField(event.notes) as string;
+    return event;
+  }
+
   async findAll() {
-    return this.prisma.custodyEvent.findMany({
+    const events = await this.prisma.custodyEvent.findMany({
       select: custodyEventSelect,
       orderBy: { eventTime: 'asc' },
     });
+    return events.map(e => this.decryptEventFields(e));
   }
 
   async findByEvidenceId(evidenceId: string) {
@@ -56,28 +75,8 @@ export class CustodyEventsService {
       orderBy: { eventTime: 'asc' },
     });
 
-    if (events.length > 0) {
-      const latest = events[events.length - 1];
-      if (latest.action === 'HANDOVER_DISPATCH') {
-         const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-         if (new Date(latest.eventTime) < threeDaysAgo) {
-            const existingLog = await this.prisma.auditLog.findFirst({
-              where: { action: 'ESCALATION_TRIGGERED', entityId: evidenceId }
-            });
-            if (!existingLog) {
-              await this.prisma.auditLog.create({
-                data: {
-                  action: 'ESCALATION_TRIGGERED',
-                  entityId: evidenceId,
-                  entityType: 'Evidence',
-                  description: `Handover escalation triggered for evidence ${evidenceId}`,
-                }
-              });
-            }
-            (latest as any).isOverdue = true;
-         }
-      }
-    }
+
+    events.forEach(e => this.decryptEventFields(e));
 
     return events;
   }
@@ -101,13 +100,16 @@ export class CustodyEventsService {
     }
 
     return this.prisma.$transaction(async (prisma) => {
+      let encLocation = location;
+      if (encLocation) encLocation = encryptField(encLocation) as string;
+
       const event = await prisma.custodyEvent.create({
         data: {
           evidenceId,
           action: 'HANDOVER_DISPATCH',
           actorId: userId,
           recipientId,
-          location,
+          location: encLocation,
           eventTime: new Date(),
         },
         select: custodyEventSelect,
@@ -123,6 +125,7 @@ export class CustodyEventsService {
         }
       });
 
+      if (event.location) event.location = decryptField(event.location) as string;
       return event;
     });
   }
@@ -142,16 +145,29 @@ export class CustodyEventsService {
     }
 
     return this.prisma.$transaction(async (prisma) => {
+      let encLocation = location || lastEvent.location;
+      if (location) {
+        encLocation = encryptField(location) as string;
+      } // if using lastEvent.location, it's already encrypted in db. Wait, we fetched lastEvent and it wasn't decrypted!
+      // I should decrypt lastEvent fields if used, or just use it as is if we want it encrypted.
+      // Actually, since lastEvent.location is encrypted in DB, we can just pass it directly if location is not provided!
+      // But if location IS provided, encrypt it.
+      if (location) {
+        encLocation = encryptField(location) as string;
+      }
+
       const event = await prisma.custodyEvent.create({
         data: {
           evidenceId,
           action: 'HANDOVER_ACK',
           actorId: userId,
-          location: location || lastEvent.location,
+          location: encLocation,
           eventTime: new Date(),
         },
         select: custodyEventSelect,
       });
+
+      const latestHash = await prisma.evidenceHash.findFirst({ where: { evidenceId }, orderBy: { generatedAt: 'desc' } });
 
       await prisma.auditLog.create({
         data: {
@@ -160,9 +176,12 @@ export class CustodyEventsService {
           entityId: evidenceId,
           entityType: 'Evidence',
           description: `Accepted handover of evidence ${evidenceId}`,
+          previousHash: latestHash?.hashValue,
+          newHash: latestHash?.hashValue,
         }
       });
 
+      if (event.location) event.location = decryptField(event.location) as string;
       return event;
     });
   }
@@ -190,7 +209,7 @@ export class CustodyEventsService {
           recipientId: lastEvent.actorId,
           location: lastEvent.location,
           eventTime: new Date(),
-          notes: 'Handover rejected by recipient',
+          notes: encryptField('Handover rejected by recipient'),
         },
         select: custodyEventSelect,
       });
@@ -204,7 +223,8 @@ export class CustodyEventsService {
           description: `Rejected handover of evidence ${evidenceId}`,
         }
       });
-
+      if (event.location) event.location = decryptField(event.location) as string;
+      if (event.notes) event.notes = decryptField(event.notes) as string;
       return event;
     });
   }
@@ -216,10 +236,9 @@ export class CustodyEventsService {
     });
 
     if (!event) {
-      throw new NotFoundException(`CustodyEvent with ID ${id} not found`);
+      throw new NotFoundException(`Custody Event with ID ${id} not found`);
     }
-
-    return event;
+    return this.decryptEventFields(event);
   }
 
   async delete(id: string) {

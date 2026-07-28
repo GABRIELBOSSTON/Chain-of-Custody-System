@@ -5,6 +5,8 @@ export const auditLogSelect = {
   entityId: true,
   entityType: true,
   description: true,
+  previousHash: true,
+  newHash: true,
   timestamp: true,
   user: {
     select: {

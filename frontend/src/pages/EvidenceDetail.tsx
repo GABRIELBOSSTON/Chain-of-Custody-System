@@ -11,6 +11,7 @@ export default function EvidenceDetail() {
   const [integrityStatus, setIntegrityStatus] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [overrideLock, setOverrideLock] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -105,7 +106,7 @@ export default function EvidenceDetail() {
     const location = window.prompt("Enter new location for the evidence:", lastEvent?.location || "");
     if (location === null) return;
     try {
-      await api.post(`/custody-events/evidence/${id}/handover/accept`, { location });
+      await api.post(`/custody-events/evidence/${id}/handover/accept${overrideLock ? '?override=true' : ''}`, { location });
       alert('Handover accepted');
       window.location.reload();
     } catch (err: any) {
@@ -115,7 +116,7 @@ export default function EvidenceDetail() {
 
   const handleRejectHandover = async () => {
     try {
-      await api.post(`/custody-events/evidence/${id}/handover/reject`);
+      await api.post(`/custody-events/evidence/${id}/handover/reject${overrideLock ? '?override=true' : ''}`);
       alert('Handover rejected');
       window.location.reload();
     } catch (err: any) {
@@ -123,14 +124,54 @@ export default function EvidenceDetail() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this evidence?")) return;
+    try {
+      await api.delete(`/evidences/${id}${overrideLock ? '?override=true' : ''}`);
+      alert("Evidence deleted");
+      window.location.href = '/evidences';
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete');
+    }
+  };
+
+  const caseStatus = evidence?.case?.status;
+  const isSuperAdmin = currentUser?.role?.name === 'SUPER_ADMIN';
+  const isArchived = caseStatus === 'ARCHIVED';
+  const isInCourt = caseStatus === 'IN_COURT';
+  const isProsecution = caseStatus === 'SUBMITTED_TO_PROSECUTION';
+  
+  const isLocked = isArchived || isProsecution || (isInCourt && !overrideLock);
+  const showOverride = isInCourt && isSuperAdmin;
+
   return (
     <div className="centered-page" style={{ alignItems: 'flex-start', paddingTop: '4rem', paddingBottom: '4rem' }}>
       <div className="auth-container glass-panel" style={{ maxWidth: '800px', width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h1 className="auth-title" style={{ textAlign: 'left', marginBottom: '0' }}>Evidence Details</h1>
-          <Link to="/evidences" className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textDecoration: 'none', padding: '0.5rem 1rem' }}>
-            Back to List
-          </Link>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            {showOverride && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444', fontWeight: 'bold' }}>
+                <input type="checkbox" checked={overrideLock} onChange={(e) => setOverrideLock(e.target.checked)} />
+                Override Court Lock
+              </label>
+            )}
+            {!isLocked && (
+              <>
+                <Link to={`/evidences/edit/${id}${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ background: '#3b82f6', textDecoration: 'none', padding: '0.5rem 1rem' }}>
+                  Edit
+                </Link>
+                {isSuperAdmin && (
+                  <button onClick={handleDelete} className="btn-primary" style={{ background: '#ef4444', border: 'none', padding: '0.5rem 1rem' }}>
+                    Delete
+                  </button>
+                )}
+              </>
+            )}
+            <Link to="/evidences" className="btn-primary" style={{ background: 'transparent', border: '1px solid var(--glass-border)', textDecoration: 'none', padding: '0.5rem 1rem' }}>
+              Back to List
+            </Link>
+          </div>
         </div>
 
         {isIntendedRecipient && (
@@ -169,7 +210,11 @@ export default function EvidenceDetail() {
           </div>
           <div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Status</p>
-            <span className="role-badge">{evidence.status.replace(/_/g, ' ')}</span>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <span className="role-badge">{evidence.status.replace(/_/g, ' ')}</span>
+              {isArchived && <span style={{ background: 'rgba(156,163,175,0.2)', color: '#9ca3af', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>ARCHIVED</span>}
+              {isLocked && !isArchived && <span style={{ background: 'rgba(239,68,68,0.2)', color: '#ef4444', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>READ ONLY</span>}
+            </div>
           </div>
           <div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Ready for Transfer</p>
@@ -180,8 +225,93 @@ export default function EvidenceDetail() {
             <p style={{ fontSize: '1rem' }}>{evidence.collectionLocation}</p>
           </div>
           <div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Storage Location</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Legacy Storage Location</p>
             <p style={{ fontSize: '1rem' }}>{evidence.storageLocation || 'N/A'}</p>
+          </div>
+        </div>
+
+        {/* Legal Authority Section */}
+        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Legal Authority</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Warrant Number</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.warrantNumber || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Consent Reference</p>
+              <p style={{ fontSize: '1rem' }}>{evidence.consentReference || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Seizure Authorization</p>
+              <p style={{ fontSize: '1rem' }}>{evidence.seizureAuth || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Legal Basis</p>
+              <p style={{ fontSize: '1rem' }}>{evidence.legalBasis || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Physical Storage Tracking */}
+        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Physical Storage Tracking</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Building</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageBuilding || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Room</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageRoom || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Cabinet</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageCabinet || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Shelf</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageShelf || 'N/A'}</p>
+            </div>
+            <div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Locker</p>
+              <p style={{ fontSize: '1rem', fontWeight: 600 }}>{evidence.storageLocker || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Hierarchy Tree */}
+        <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', fontWeight: 600 }}>Hierarchy Tree</h2>
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)' }}>
+            {evidence.parent ? (
+              <div style={{ marginBottom: '1rem' }}>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Parent Evidence</p>
+                <Link to={`/evidences/${evidence.parent.id}/detail`} style={{ color: 'var(--accent-color)', textDecoration: 'none', fontWeight: 600 }}>
+                  {evidence.parent.evidenceNumber} - {evidence.parent.title}
+                </Link>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1rem' }}>No Parent (Top Level Evidence)</p>
+            )}
+
+            {evidence.children && evidence.children.length > 0 && (
+              <div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Child Evidences</p>
+                <ul style={{ margin: 0, paddingLeft: '1.5rem' }}>
+                  {evidence.children.map((child: any) => (
+                    <li key={child.id} style={{ marginBottom: '0.25rem' }}>
+                      <Link to={`/evidences/${child.id}/detail`} style={{ color: 'var(--accent-color)', textDecoration: 'none' }}>
+                        {child.evidenceNumber} - {child.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(!evidence.children || evidence.children.length === 0) && (
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No Child Evidences</p>
+            )}
           </div>
         </div>
 
@@ -297,17 +427,38 @@ export default function EvidenceDetail() {
 
         {/* Chain of Custody Section */}
         <div style={{ marginTop: '3rem', borderTop: '1px solid var(--glass-border)', paddingTop: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0 }}>Chain of Custody History</h2>
-            <Link to={`/evidences/${id}/custody/new`} className="btn-primary" style={{ textDecoration: 'none', width: 'auto', padding: '0.5rem 1rem' }}>
-              + Add Record
-            </Link>
+            {!isLocked && (
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <Link to={`/evidences/${id}/custody/new${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ textDecoration: 'none', width: 'auto', padding: '0.5rem 1rem' }}>
+                  + Transfer Custody
+                </Link>
+                <Link to={`/evidences/${id}/custody/external${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ background: '#8b5cf6', borderColor: '#8b5cf6', textDecoration: 'none', width: 'auto', padding: '0.5rem 1rem' }}>
+                  + External Transfer
+                </Link>
+                <Link to={`/evidences/${id}/court/new${overrideLock ? '?override=true' : ''}`} className="btn-primary" style={{ background: '#eab308', borderColor: '#eab308', textDecoration: 'none', width: 'auto', padding: '0.5rem 1rem', color: '#1a1a1a' }}>
+                  + Court Presentation
+                </Link>
+              </div>
+            )}
           </div>
           
           {custodyEvents.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingLeft: '1.5rem', borderLeft: '2px solid var(--glass-border)', marginLeft: '0.5rem', position: 'relative' }}>
               {custodyEvents.map((event) => (
                 <div key={event.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '8px', border: '1px solid var(--glass-border)', position: 'relative' }}>
+                  {/* Timeline Dot */}
+                  <div style={{
+                    position: 'absolute',
+                    left: '-2.15rem',
+                    top: '1.5rem',
+                    width: '1.1rem',
+                    height: '1.1rem',
+                    background: event.action === 'COURT_SUBMISSION' ? '#eab308' : event.action === 'EXTERNAL_TRANSFER' ? '#8b5cf6' : '#6366f1',
+                    borderRadius: '50%',
+                    border: '4px solid #1a1a1a'
+                  }}></div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <span style={{ 
@@ -346,13 +497,27 @@ export default function EvidenceDetail() {
                     </div>
                     <div>
                       <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>To Person</p>
-                      <p style={{ fontSize: '0.95rem' }}>{event.recipient ? (event.recipient.policeProfile?.fullName || event.recipient.email) : 'N/A'}</p>
+                      {event.action === 'EXTERNAL_TRANSFER' ? (
+                        <p style={{ fontSize: '0.95rem' }}>
+                          {event.externalRecipientName} <br/>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>({event.externalOrganization})</span>
+                        </p>
+                      ) : (
+                        <p style={{ fontSize: '0.95rem' }}>{event.recipient ? (event.recipient.policeProfile?.fullName || event.recipient.email) : 'N/A'}</p>
+                      )}
                     </div>
                     <div style={{ gridColumn: '1 / -1' }}>
                       <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Location</p>
                       <p style={{ fontSize: '0.95rem' }}>{event.location}</p>
                     </div>
                   </div>
+
+                  {event.action === 'EXTERNAL_TRANSFER' && event.transferReason && (
+                    <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '1rem', marginBottom: '1rem' }}>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Transfer Reason</p>
+                      <p style={{ fontSize: '0.9rem' }}>{event.transferReason}</p>
+                    </div>
+                  )}
 
                   {event.notes && (
                     <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '1rem' }}>

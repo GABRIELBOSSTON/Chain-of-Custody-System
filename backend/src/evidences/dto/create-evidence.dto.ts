@@ -47,4 +47,53 @@ export class CreateEvidenceDto {
   @IsBoolean()
   @IsOptional()
   isReadyForTransfer?: boolean;
+
+  @IsString()
+  @IsOptional()
+  parentId?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  warrantNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  consentReference?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  seizureAuth?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  legalBasis?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  storageBuilding?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  storageRoom?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  storageCabinet?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  storageShelf?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  storageLocker?: string;
 }

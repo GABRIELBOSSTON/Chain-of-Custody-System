@@ -35,12 +35,26 @@ export default function EvidenceForm() {
   const [collectionLocation, setCollectionLocation] = useState('');
   const [status, setStatus] = useState('SEIZED');
   const [storageLocation, setStorageLocation] = useState('');
+  
+  // New Domain Fields
+  const [parentId, setParentId] = useState('');
+  const [warrantNumber, setWarrantNumber] = useState('');
+  const [consentReference, setConsentReference] = useState('');
+  const [seizureAuth, setSeizureAuth] = useState('');
+  const [legalBasis, setLegalBasis] = useState('');
+  const [storageBuilding, setStorageBuilding] = useState('');
+  const [storageRoom, setStorageRoom] = useState('');
+  const [storageCabinet, setStorageCabinet] = useState('');
+  const [storageShelf, setStorageShelf] = useState('');
+  const [storageLocker, setStorageLocker] = useState('');
+
   const [isReadyForTransfer, setIsReadyForTransfer] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [evidences, setEvidences] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -50,6 +64,8 @@ export default function EvidenceForm() {
         if (casesRes.data.length > 0 && !isEditing) {
           setCaseId(casesRes.data[0].id);
         }
+        const evListRes = await api.get('/evidences');
+        setEvidences(evListRes.data);
 
         if (isEditing) {
           const evRes = await api.get(`/evidences/${id}`);
@@ -64,6 +80,17 @@ export default function EvidenceForm() {
           setStatus(ev.status);
           setStorageLocation(ev.storageLocation || '');
           setIsReadyForTransfer(ev.isReadyForTransfer);
+          
+          setParentId(ev.parentId || '');
+          setWarrantNumber(ev.warrantNumber || '');
+          setConsentReference(ev.consentReference || '');
+          setSeizureAuth(ev.seizureAuth || '');
+          setLegalBasis(ev.legalBasis || '');
+          setStorageBuilding(ev.storageBuilding || '');
+          setStorageRoom(ev.storageRoom || '');
+          setStorageCabinet(ev.storageCabinet || '');
+          setStorageShelf(ev.storageShelf || '');
+          setStorageLocker(ev.storageLocker || '');
         }
       } catch (err: any) {
         if (err.response?.status === 403) {
@@ -97,7 +124,17 @@ export default function EvidenceForm() {
           collectionLocation,
           status,
           storageLocation,
-          isReadyForTransfer
+          isReadyForTransfer,
+          parentId: parentId || undefined,
+          warrantNumber,
+          consentReference,
+          seizureAuth,
+          legalBasis,
+          storageBuilding,
+          storageRoom,
+          storageCabinet,
+          storageShelf,
+          storageLocker
         };
         const res = await api.patch(`/evidences/${id}`, payload);
         if (res.data?.status === 'PENDING_APPROVAL') {
@@ -115,6 +152,16 @@ export default function EvidenceForm() {
         formData.append('status', status);
         formData.append('storageLocation', storageLocation);
         formData.append('isReadyForTransfer', isReadyForTransfer.toString());
+        if (parentId) formData.append('parentId', parentId);
+        if (warrantNumber) formData.append('warrantNumber', warrantNumber);
+        if (consentReference) formData.append('consentReference', consentReference);
+        if (seizureAuth) formData.append('seizureAuth', seizureAuth);
+        if (legalBasis) formData.append('legalBasis', legalBasis);
+        if (storageBuilding) formData.append('storageBuilding', storageBuilding);
+        if (storageRoom) formData.append('storageRoom', storageRoom);
+        if (storageCabinet) formData.append('storageCabinet', storageCabinet);
+        if (storageShelf) formData.append('storageShelf', storageShelf);
+        if (storageLocker) formData.append('storageLocker', storageLocker);
         if (file) {
           formData.append('file', file);
         }
@@ -154,6 +201,22 @@ export default function EvidenceForm() {
               {cases.map((c) => (
                 <option key={c.id} value={c.id} style={{ color: 'black' }}>
                   {c.caseNumber} - {c.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="input-label">Parent Evidence (Optional Hierarchy)</label>
+            <select 
+              className="input-field" 
+              value={parentId} 
+              onChange={(e) => setParentId(e.target.value)}
+            >
+              <option value="" style={{ color: 'black' }}>None (Top Level)</option>
+              {evidences.filter(e => e.id !== id).map((e) => (
+                <option key={e.id} value={e.id} style={{ color: 'black' }}>
+                  {e.evidenceNumber} - {e.title}
                 </option>
               ))}
             </select>
@@ -251,8 +314,31 @@ export default function EvidenceForm() {
             />
           </div>
 
+          <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Legal Authority</h3>
+          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label className="input-label">Warrant Number</label>
+              <input type="text" className="input-field" value={warrantNumber} onChange={(e) => setWarrantNumber(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Consent Reference</label>
+              <input type="text" className="input-field" value={consentReference} onChange={(e) => setConsentReference(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label className="input-label">Seizure Authorization</label>
+              <input type="text" className="input-field" value={seizureAuth} onChange={(e) => setSeizureAuth(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Legal Basis</label>
+              <input type="text" className="input-field" value={legalBasis} onChange={(e) => setLegalBasis(e.target.value)} />
+            </div>
+          </div>
+
+          <h3 style={{ marginTop: '2rem', marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--glass-border)', paddingBottom: '0.5rem' }}>Physical Storage Tracking</h3>
           <div className="form-group">
-            <label className="input-label">Current Storage Location</label>
+            <label className="input-label">Legacy Storage Location (General)</label>
             <input 
               type="text" 
               className="input-field"
@@ -260,6 +346,30 @@ export default function EvidenceForm() {
               onChange={(e) => setStorageLocation(e.target.value)}
               placeholder="e.g. Evidence Locker 4B"
             />
+          </div>
+          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label className="input-label">Building</label>
+              <input type="text" className="input-field" value={storageBuilding} onChange={(e) => setStorageBuilding(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Room</label>
+              <input type="text" className="input-field" value={storageRoom} onChange={(e) => setStorageRoom(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label className="input-label">Cabinet</label>
+              <input type="text" className="input-field" value={storageCabinet} onChange={(e) => setStorageCabinet(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Shelf</label>
+              <input type="text" className="input-field" value={storageShelf} onChange={(e) => setStorageShelf(e.target.value)} />
+            </div>
+            <div>
+              <label className="input-label">Locker</label>
+              <input type="text" className="input-field" value={storageLocker} onChange={(e) => setStorageLocker(e.target.value)} />
+            </div>
           </div>
 
           <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>

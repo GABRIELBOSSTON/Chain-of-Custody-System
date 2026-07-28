@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards, Query } from '@nestjs/common';
 import { CustodyEventsService } from './custody-events.service';
 import { CreateCustodyEventDto } from './dto/create-custody-event.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -37,9 +37,11 @@ export class CustodyEventsController {
     @Param('evidenceId', ParseUUIDPipe) evidenceId: string,
     @Body('recipientId', ParseUUIDPipe) recipientId: string,
     @Body('location') location: string,
-    @CurrentUser() user: { id: string }
+    @CurrentUser() user: { id: string },
+    @Query('override') override?: string
   ) {
-    return this.custodyEventsService.dispatchHandover(evidenceId, recipientId, location, user.id);
+    const isOverride = override === 'true';
+    return this.custodyEventsService.dispatchHandover(evidenceId, recipientId, location, user.id, isOverride);
   }
 
   @Post('evidence/:evidenceId/handover/accept')
@@ -47,18 +49,40 @@ export class CustodyEventsController {
   async acceptHandover(
     @Param('evidenceId', ParseUUIDPipe) evidenceId: string,
     @Body('location') location: string,
-    @CurrentUser() user: { id: string }
+    @CurrentUser() user: { id: string },
+    @Query('override') override?: string
   ) {
-    return this.custodyEventsService.acceptHandover(evidenceId, location, user.id);
+    const isOverride = override === 'true';
+    return this.custodyEventsService.acceptHandover(evidenceId, location, user.id, isOverride);
   }
 
   @Post('evidence/:evidenceId/handover/reject')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.INVESTIGATOR)
   async rejectHandover(
     @Param('evidenceId', ParseUUIDPipe) evidenceId: string,
-    @CurrentUser() user: { id: string }
+    @CurrentUser() user: { id: string },
+    @Query('override') override?: string
   ) {
-    return this.custodyEventsService.rejectHandover(evidenceId, user.id);
+    const isOverride = override === 'true';
+    return this.custodyEventsService.rejectHandover(evidenceId, user.id, isOverride);
+  }
+
+  @Post('evidence/:evidenceId/handover/external')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.INVESTIGATOR)
+  async externalTransfer(
+    @Param('evidenceId', ParseUUIDPipe) evidenceId: string,
+    @Body('location') location: string,
+    @Body('externalOrganization') externalOrganization: string,
+    @Body('externalRecipientName') externalRecipientName: string,
+    @Body('signatureName') signatureName: string,
+    @Body('transferReason') transferReason: string,
+    @CurrentUser() user: { id: string },
+    @Query('override') override?: string
+  ) {
+    const isOverride = override === 'true';
+    return this.custodyEventsService.externalTransfer(
+      evidenceId, location, externalOrganization, externalRecipientName, signatureName, transferReason, user.id, isOverride
+    );
   }
 
   @Get(':id')

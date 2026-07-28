@@ -40,6 +40,8 @@ model User {
   reportExports        ReportExport[]
   reports              Report[]
   systemLogs           SystemLog[]
+  courtPresentationsPresented CourtPresentation[] @relation("PresentedBy")
+  courtPresentationsReturned CourtPresentation[] @relation("ReturnedBy")
   deletedByUser        User?               @relation("DeletedBy", fields: [deletedBy], references: [id], onDelete: Restrict)
   deletedUsers         User[]              @relation("DeletedBy")
   role                 Role                @relation(fields: [roleId], references: [id])
@@ -138,6 +140,7 @@ model CaseStatusHistory {
 model Evidence {
   id                 String             @id @default(uuid()) @db.Char(36)
   caseId             String             @map("case_id") @db.Char(36)
+  parentId           String?            @map("parent_id") @db.Char(36)
   description        String?            @db.Text
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
@@ -149,15 +152,35 @@ model Evidence {
   isReadyForTransfer Boolean            @default(false) @map("is_ready_for_transfer")
   status             EvidenceStatus     @default(SEIZED)
   storageLocation    String?            @map("storage_location") @db.Text
+  
+  // Legal Authority
+  warrantNumber      String?            @map("warrant_number") @db.VarChar(100)
+  consentReference   String?            @map("consent_reference") @db.VarChar(100)
+  seizureAuth        String?            @map("seizure_auth") @db.VarChar(100)
+  legalBasis         String?            @map("legal_basis") @db.VarChar(100)
+
+  // Physical Storage Tracking
+  storageBuilding    String?            @map("storage_building") @db.VarChar(100)
+  storageRoom        String?            @map("storage_room") @db.VarChar(100)
+  storageCabinet     String?            @map("storage_cabinet") @db.VarChar(100)
+  storageShelf       String?            @map("storage_shelf") @db.VarChar(100)
+  storageLocker      String?            @map("storage_locker") @db.VarChar(100)
+
   title              String             @db.Text
+  
+  parent             Evidence?          @relation("EvidenceHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children           Evidence[]         @relation("EvidenceHierarchy")
+  
   attachments        Attachment[]
   custodyEvents      CustodyEvent[]
   approvals          EvidenceApproval[]
   hashes             EvidenceHash[]
   case               Case               @relation(fields: [caseId], references: [id])
   qrCode             QRCode?
+  courtPresentations CourtPresentation[]
 
   @@index([caseId], map: "evidences_case_id_fkey")
+  @@index([parentId], map: "evidences_parent_id_fkey")
   @@map("evidences")
 }
 
@@ -220,18 +243,25 @@ model QRCode {
 }
 
 model CustodyEvent {
-  id          String        @id @default(uuid()) @db.Char(36)
-  evidenceId  String        @map("evidence_id") @db.Char(36)
-  action      CustodyAction
-  actorId     String        @map("actor_id") @db.Char(36)
-  recipientId String?       @map("recipient_id") @db.Char(36)
-  location    String        @db.Text
-  eventTime   DateTime      @map("event_time")
-  notes       String?       @db.Text
-  isOverdue   Boolean       @default(false) @map("is_overdue")
-  actor       User          @relation("Actor", fields: [actorId], references: [id])
-  evidence    Evidence      @relation(fields: [evidenceId], references: [id])
-  recipient   User?         @relation("Recipient", fields: [recipientId], references: [id], onDelete: Restrict)
+  id                    String        @id @default(uuid()) @db.Char(36)
+  evidenceId            String        @map("evidence_id") @db.Char(36)
+  action                CustodyAction
+  actorId               String        @map("actor_id") @db.Char(36)
+  recipientId           String?       @map("recipient_id") @db.Char(36)
+  location              String        @db.Text
+  eventTime             DateTime      @map("event_time")
+  notes                 String?       @db.Text
+  isOverdue             Boolean       @default(false) @map("is_overdue")
+  
+  // External Transfer Fields
+  externalOrganization  String?       @map("external_organization") @db.VarChar(200)
+  externalRecipientName String?       @map("external_recipient_name") @db.VarChar(150)
+  signatureName         String?       @map("signature_name") @db.VarChar(150)
+  transferReason        String?       @map("transfer_reason") @db.VarChar(255)
+
+  actor                 User          @relation("Actor", fields: [actorId], references: [id])
+  evidence              Evidence      @relation(fields: [evidenceId], references: [id])
+  recipient             User?         @relation("Recipient", fields: [recipientId], references: [id], onDelete: Restrict)
 
   @@index([actorId], map: "custody_events_actor_id_fkey")
   @@index([evidenceId], map: "custody_events_evidence_id_fkey")
@@ -249,6 +279,7 @@ model AuditLog {
   description  String?  @db.Text
   previousHash String?  @map("previous_hash") @db.VarChar(255)
   newHash      String?  @map("new_hash") @db.VarChar(255)
+  signature    String?  @db.VarChar(255)
   user        User?    @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([entityType, entityId])
@@ -297,6 +328,26 @@ model ReportExport {
   @@index([exportedBy], map: "report_exports_exported_by_fkey")
   @@index([reportId], map: "report_exports_report_id_fkey")
   @@map("report_exports")
+}
+
+model CourtPresentation {
+  id            String    @id @default(uuid()) @db.Char(36)
+  evidenceId    String    @map("evidence_id") @db.Char(36)
+  courtName     String    @map("court_name") @db.VarChar(200)
+  exhibitNumber String    @map("exhibit_number") @db.VarChar(100)
+  presentedDate DateTime  @map("presented_date")
+  returnedDate  DateTime? @map("returned_date")
+  presentedBy   String    @map("presented_by") @db.Char(36)
+  returnedBy    String?   @map("returned_by") @db.Char(36)
+
+  evidence      Evidence  @relation(fields: [evidenceId], references: [id])
+  presenter     User      @relation("PresentedBy", fields: [presentedBy], references: [id])
+  returner      User?     @relation("ReturnedBy", fields: [returnedBy], references: [id])
+
+  @@index([evidenceId])
+  @@index([presentedBy])
+  @@index([returnedBy])
+  @@map("court_presentations")
 }
 
 enum CaseStatus {
@@ -353,5 +404,6 @@ enum CustodyAction {
   LAB_ANALYSIS
   COURT_SUBMISSION
   RETURNED
+  EXTERNAL_TRANSFER
   OTHER
 }

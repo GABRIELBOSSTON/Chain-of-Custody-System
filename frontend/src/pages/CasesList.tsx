@@ -80,7 +80,7 @@ export default function CasesList() {
                       <span style={{ 
                         color: 'white',
                         padding: '0.25rem 0.5rem',
-                        background: 'rgba(59, 130, 246, 0.5)',
+                        background: c.status === 'ARCHIVED' ? 'rgba(156, 163, 175, 0.5)' : (c.status === 'IN_COURT' ? 'rgba(239, 68, 68, 0.5)' : 'rgba(59, 130, 246, 0.5)'),
                         borderRadius: '4px',
                         fontSize: '0.875rem'
                       }}>

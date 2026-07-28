@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { createAuditLog } from '../audit-logs/utils/audit-logger';
+import { ForbiddenException, Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -14,6 +15,54 @@ import { encryptField, decryptField, encryptRoute, decryptRoute } from '../commo
 export class EvidencesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async checkCaseStatusGate(caseId: string, action: 'CREATE' | 'EDIT' | 'DELETE' | 'HANDOVER', userId: string, override: boolean = false) {
+    const relatedCase = await this.prisma.case.findUnique({
+      where: { id: caseId, deletedAt: null },
+      select: { status: true, caseNumber: true }
+    });
+
+    if (!relatedCase) {
+      throw new NotFoundException(`Case not found or deleted`);
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true }
+    });
+
+    const { status } = relatedCase;
+
+    if (status === CaseStatus.ARCHIVED) {
+      throw new ForbiddenException(`Case ${relatedCase.caseNumber} is ARCHIVED. Evidence operations are locked.`);
+    }
+
+    if (status === CaseStatus.IN_COURT) {
+      if (user?.role?.name === 'SUPER_ADMIN' && override) {
+        await createAuditLog(this.prisma, {
+          data: {
+            userId: user.id,
+            action: 'COURT_OVERRIDE',
+            entityId: caseId,
+            entityType: 'Case',
+            description: `Super Admin overridden court lock for ${action} on Case ${relatedCase.caseNumber}`,
+          }
+        });
+        return; // Proceed
+      }
+      throw new ForbiddenException(`Case ${relatedCase.caseNumber} is IN_COURT. Evidence operations are locked.`);
+    }
+
+    if (status === CaseStatus.SUBMITTED_TO_PROSECUTION) {
+      throw new ForbiddenException(`Case ${relatedCase.caseNumber} is SUBMITTED_TO_PROSECUTION. Evidence is read-only.`);
+    }
+
+    if (status === CaseStatus.PENDING_REVIEW) {
+      if (action === 'CREATE' || action === 'DELETE') {
+        throw new ForbiddenException(`Case ${relatedCase.caseNumber} is PENDING_REVIEW. Cannot create or delete evidence.`);
+      }
+    }
+  }
+
   async create(createEvidenceDto: CreateEvidenceDto, userId: string, file?: Express.Multer.File) {
     // BR-020: Evidence cannot be added unless case status is OPEN
     const relatedCase = await this.prisma.case.findUnique({
@@ -24,21 +73,7 @@ export class EvidencesService {
       throw new NotFoundException(`Case with ID ${createEvidenceDto.caseId} not found`);
     }
 
-    // "OPEN" in BR-020 refers to the logical lifecycle category of active investigations, not strictly CaseStatus.OPEN.
-    const activeStatuses: CaseStatus[] = [
-      CaseStatus.OPEN,
-      CaseStatus.UNDER_INVESTIGATION,
-      CaseStatus.PENDING_REVIEW,
-      CaseStatus.REFERRED,
-      CaseStatus.SUBMITTED_TO_PROSECUTION,
-      CaseStatus.IN_COURT
-    ];
-
-    const isStatusValid = activeStatuses.includes(relatedCase.status);
-
-    if (!isStatusValid) {
-      throw new BadRequestException(`Evidence can only be added to cases with an active 'OPEN' lifecycle status. Current status: ${relatedCase.status}`);
-    }
+    await this.checkCaseStatusGate(createEvidenceDto.caseId, 'CREATE', userId, false);
 
     const existingEvidence = await this.prisma.evidence.findUnique({
       where: { evidenceNumber: createEvidenceDto.evidenceNumber },
@@ -74,7 +109,7 @@ export class EvidencesService {
         select: evidenceSelect,
       });
 
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'CREATE_EVIDENCE',
@@ -106,7 +141,7 @@ export class EvidencesService {
           }
         });
 
-        await prisma.auditLog.create({
+        await createAuditLog(prisma, {
           data: {
             userId,
             action: 'UPLOAD_ATTACHMENT',
@@ -132,7 +167,7 @@ export class EvidencesService {
         }
       });
 
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'GENERATE_QR_CODE',
@@ -157,12 +192,23 @@ export class EvidencesService {
     });
   }
 
-  async findAll(caseId?: string) {
+  async findAll(user?: { id: string; role?: { name: string } }, caseId?: string) {
+    const whereClause: any = { deletedAt: null };
+    
+    if (caseId) {
+      whereClause.caseId = caseId;
+    }
+
+    if (user && (user.role?.name === 'INVESTIGATOR' || user.role?.name === 'ADMIN')) {
+      whereClause.case = {
+        assignments: {
+          some: { userId: user.id },
+        },
+      };
+    }
+
     const evidences = await this.prisma.evidence.findMany({
-      where: { 
-        deletedAt: null,
-        ...(caseId ? { caseId } : {})
-      },
+      where: whereClause,
       select: evidenceSelect,
       orderBy: { createdAt: 'desc' },
     });
@@ -206,7 +252,7 @@ export class EvidencesService {
     const evidence = await this.findById(id);
 
     // Record the VIEW_EVIDENCE action in the audit log
-    await this.prisma.auditLog.create({
+    await createAuditLog(this.prisma, {
       data: {
         userId,
         action: 'VIEW_EVIDENCE',
@@ -218,6 +264,7 @@ export class EvidencesService {
 
     return evidence;
   }
+
 
   async verifyHash(id: string, userId: string) {
     const evidence = await this.findById(id);
@@ -238,7 +285,7 @@ export class EvidencesService {
       if (computedHash === storedHash) {
         return { status: 'VERIFIED' };
       } else {
-        await this.prisma.auditLog.create({
+        await createAuditLog(this.prisma, {
           data: {
             userId,
             action: 'VERIFY_EVIDENCE_HASH',
@@ -251,21 +298,75 @@ export class EvidencesService {
       }
     } catch (err) {
       // File does not exist or cannot be read
-      await this.prisma.auditLog.create({
+      await createAuditLog(this.prisma, {
         data: {
           userId,
           action: 'VERIFY_EVIDENCE_HASH',
           entityId: id,
           entityType: 'Evidence',
-          description: `Integrity Failed: File missing or unreadable for evidence ${evidence.evidenceNumber}`,
+          description: `Integrity Failed: File not found or unreadable for evidence ${evidence.evidenceNumber}`,
         }
       });
       return { status: 'FAILED' };
     }
   }
 
-  async update(id: string, updateEvidenceDto: UpdateEvidenceDto, userId: string, roleName?: string) {
-    await this.findById(id); // Ensure exists
+  async verifyIntegrityStrict(id: string, userId: string) {
+    const result = await this.verifyHash(id, userId);
+    if (result.status === 'FAILED') {
+      await createAuditLog(this.prisma, {
+        data: {
+          userId,
+          action: 'INTEGRITY_ALERT',
+          entityId: id,
+          entityType: 'Evidence',
+          description: `ALERT: Operation blocked due to SHA-256 integrity failure on evidence ID ${id}`,
+        }
+      });
+      throw new ForbiddenException('Evidence integrity check failed. Operation blocked.');
+    }
+  }
+
+  async verifyAll(userId: string) {
+    const evidences = await this.prisma.evidence.findMany({
+      where: { deletedAt: null },
+      select: { id: true, evidenceNumber: true }
+    });
+
+    let verified = 0;
+    let failed = 0;
+    const failedIds: string[] = [];
+
+    for (const ev of evidences) {
+      const res = await this.verifyHash(ev.id, userId);
+      if (res.status === 'VERIFIED') {
+        verified++;
+      } else if (res.status === 'FAILED') {
+        failed++;
+        failedIds.push(ev.evidenceNumber);
+      }
+    }
+
+    await createAuditLog(this.prisma, {
+      data: {
+        userId,
+        action: 'VERIFY_ALL_EVIDENCE',
+        description: `Ran bulk integrity verification. Total: ${evidences.length}, Verified: ${verified}, Failed: ${failed}`,
+      }
+    });
+
+    return {
+      total: evidences.length,
+      verified,
+      failed,
+      failedIds
+    };
+  }
+
+  async update(id: string, updateEvidenceDto: UpdateEvidenceDto, userId: string, roleName?: string, override: boolean = false) {
+    const evidence = await this.findById(id); // Ensure exists
+    await this.verifyIntegrityStrict(id, userId);
+    await this.checkCaseStatusGate(evidence.caseId, 'EDIT', userId, override);
 
     if (updateEvidenceDto.evidenceNumber) {
       const existing = await this.prisma.evidence.findUnique({
@@ -274,6 +375,21 @@ export class EvidencesService {
 
       if (existing && existing.id !== id) {
         throw new ConflictException(`Evidence number ${updateEvidenceDto.evidenceNumber} is already in use`);
+      }
+    }
+
+    if (updateEvidenceDto.parentId) {
+      if (updateEvidenceDto.parentId === id) {
+        throw new BadRequestException('Evidence cannot be its own parent');
+      }
+      let currentParentId: string | null = updateEvidenceDto.parentId;
+      while (currentParentId) {
+        const parent = await this.prisma.evidence.findUnique({ where: { id: currentParentId }, select: { parentId: true } });
+        if (!parent) break;
+        if (parent.parentId === id) {
+          throw new BadRequestException('Circular hierarchy detected: parent is a descendant of this evidence');
+        }
+        currentParentId = parent.parentId;
       }
     }
 
@@ -293,7 +409,7 @@ export class EvidencesService {
           }),
         }
       });
-      await this.prisma.auditLog.create({
+      await createAuditLog(this.prisma, {
         data: {
           userId,
           action: 'EDIT_REQUESTED',
@@ -317,6 +433,15 @@ export class EvidencesService {
         dataToUpdate.storageLocation = dataToUpdate.storageLocation ? encryptField(dataToUpdate.storageLocation) : null;
       }
 
+      // Check if physical storage fields changed
+      const storageFieldsChanged = (
+        (dataToUpdate.storageBuilding !== undefined && dataToUpdate.storageBuilding !== evidence.storageBuilding) ||
+        (dataToUpdate.storageRoom !== undefined && dataToUpdate.storageRoom !== evidence.storageRoom) ||
+        (dataToUpdate.storageCabinet !== undefined && dataToUpdate.storageCabinet !== evidence.storageCabinet) ||
+        (dataToUpdate.storageShelf !== undefined && dataToUpdate.storageShelf !== evidence.storageShelf) ||
+        (dataToUpdate.storageLocker !== undefined && dataToUpdate.storageLocker !== evidence.storageLocker)
+      );
+
       const updated = await prisma.evidence.update({
         where: { id },
         data: dataToUpdate,
@@ -330,7 +455,7 @@ export class EvidencesService {
 
       const latestHash = await prisma.evidenceHash.findFirst({ where: { evidenceId: id }, orderBy: { generatedAt: 'desc' } });
 
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'UPDATE_EVIDENCE',
@@ -341,6 +466,18 @@ export class EvidencesService {
           newHash: latestHash?.hashValue,
         }
       });
+
+      if (storageFieldsChanged) {
+        await createAuditLog(prisma, {
+          data: {
+            userId,
+            action: 'STORAGE_MOVEMENT',
+            entityId: id,
+            entityType: 'Evidence',
+            description: `Physical storage location updated for evidence ${updated.evidenceNumber}`,
+          }
+        });
+      }
 
       return updated;
     });
@@ -353,11 +490,14 @@ export class EvidencesService {
     });
   }
 
-  async approveEdit(approvalId: string, userId: string) {
-    const approval = await this.prisma.evidenceApproval.findUnique({ where: { id: approvalId } });
+  async approveEdit(approvalId: string, userId: string, override: boolean = false) {
+    const approval = await this.prisma.evidenceApproval.findUnique({ where: { id: approvalId }, include: { evidence: true } });
     if (!approval || approval.status !== ApprovalStatus.PENDING) {
       throw new BadRequestException('Approval request not found or not pending');
     }
+    
+    await this.verifyIntegrityStrict(approval.evidence.id, userId);
+    await this.checkCaseStatusGate(approval.evidence.caseId, 'EDIT', userId, override);
 
     let proposedData = approval.proposedData as any;
     if (typeof proposedData === 'string') {
@@ -386,7 +526,7 @@ export class EvidencesService {
 
       const latestHash = await prisma.evidenceHash.findFirst({ where: { evidenceId: approval.evidenceId }, orderBy: { generatedAt: 'desc' } });
 
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'EDIT_APPROVED',
@@ -413,7 +553,7 @@ export class EvidencesService {
       data: { status: ApprovalStatus.REJECTED, approvedBy: userId }
     });
 
-    await this.prisma.auditLog.create({
+    await createAuditLog(this.prisma, {
       data: {
         userId,
         action: 'EDIT_REJECTED',
@@ -426,8 +566,9 @@ export class EvidencesService {
     return { status: 'REJECTED' };
   }
 
-  async delete(id: string, userId: string) {
+  async delete(id: string, userId: string, override: boolean = false) {
     const evidence = await this.findById(id);
+    await this.checkCaseStatusGate(evidence.caseId, 'DELETE', userId, override);
 
     const custodyCount = await this.prisma.custodyEvent.count({ where: { evidenceId: id } });
     if (custodyCount > 0) {
@@ -435,7 +576,7 @@ export class EvidencesService {
     }
 
     return this.prisma.$transaction(async (prisma) => {
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'SOFT_DELETE_EVIDENCE',

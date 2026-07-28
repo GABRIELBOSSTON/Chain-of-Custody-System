@@ -29,4 +29,20 @@ export class CreateCustodyEventDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsString()
+  @IsOptional()
+  externalOrganization?: string;
+
+  @IsString()
+  @IsOptional()
+  externalRecipientName?: string;
+
+  @IsString()
+  @IsOptional()
+  signatureName?: string;
+
+  @IsString()
+  @IsOptional()
+  transferReason?: string;
 }

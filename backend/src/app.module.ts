@@ -12,6 +12,7 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { ReportsModule } from './reports/reports.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EscalationsModule } from './escalations/escalations.module';
+import { CourtPresentationsModule } from './court-presentations/court-presentations.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { EscalationsModule } from './escalations/escalations.module';
     ReportsModule,
     ScheduleModule.forRoot(),
     EscalationsModule,
+    CourtPresentationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -54,8 +54,8 @@ export class EvidencesController {
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.INVESTIGATOR, Role.AUDITOR, Role.OFFICER)
-  async findAll(@Query('caseId') caseId?: string) {
-    return this.evidencesService.findAll(caseId);
+  async findAll(@CurrentUser() user: { id: string; role?: { name: string } }, @Query('caseId') caseId?: string) {
+    return this.evidencesService.findAll(user, caseId);
   }
 
   @Get(':id')
@@ -64,7 +64,13 @@ export class EvidencesController {
     return this.evidencesService.findByIdWithAudit(id, user.id, req.ip);
   }
 
-  @Get(':id/verify-hash')
+  @Post('verify-all')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR)
+  async verifyAll(@Req() req: any) {
+    return this.evidencesService.verifyAll(req.user.id);
+  }
+
+  @Post(':id/verify-hash')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.INVESTIGATOR, Role.AUDITOR, Role.OFFICER)
   async verifyHash(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { id: string }) {
     return this.evidencesService.verifyHash(id, user.id);
@@ -75,9 +81,11 @@ export class EvidencesController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateEvidenceDto: UpdateEvidenceDto,
-    @CurrentUser() user: { id: string; role?: { name: string } }
+    @CurrentUser() user: { id: string; role?: { name: string } },
+    @Query('override') override?: string
   ) {
-    return this.evidencesService.update(id, updateEvidenceDto, user.id, user.role?.name);
+    const isOverride = override === 'true';
+    return this.evidencesService.update(id, updateEvidenceDto, user.id, user.role?.name, isOverride);
   }
 
   @Get(':id/approvals/pending')
@@ -90,9 +98,11 @@ export class EvidencesController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   async approveEdit(
     @Param('approvalId', ParseUUIDPipe) approvalId: string,
-    @CurrentUser() user: { id: string }
+    @CurrentUser() user: { id: string },
+    @Query('override') override?: string
   ) {
-    return this.evidencesService.approveEdit(approvalId, user.id);
+    const isOverride = override === 'true';
+    return this.evidencesService.approveEdit(approvalId, user.id, isOverride);
   }
 
   @Post(':id/approvals/:approvalId/reject')
@@ -106,8 +116,13 @@ export class EvidencesController {
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN)
-  async delete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { id: string }) {
-    return this.evidencesService.delete(id, user.id);
+  async delete(
+    @Param('id', ParseUUIDPipe) id: string, 
+    @CurrentUser() user: { id: string },
+    @Query('override') override?: string
+  ) {
+    const isOverride = override === 'true';
+    return this.evidencesService.delete(id, user.id, isOverride);
   }
 
   @Post('decrypt-qr')

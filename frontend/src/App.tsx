@@ -14,6 +14,8 @@ import AuditLogsList from './pages/AuditLogsList';
 import Reports from './pages/Reports';
 import QrRedirect from './pages/QrRedirect';
 import QrScanner from './pages/QrScanner';
+import ExternalTransferForm from './pages/ExternalTransferForm';
+import CourtPresentationForm from './pages/CourtPresentationForm';
 import AuthGuard from './components/AuthGuard';
 
 function App() {
@@ -38,6 +40,8 @@ function App() {
           <Route path="/evidences/edit/:id" element={<EvidenceForm />} />
           <Route path="/evidences/:id/detail" element={<EvidenceDetail />} />
           <Route path="/evidences/:id/custody/new" element={<CustodyEventForm />} />
+          <Route path="/evidences/:id/custody/external" element={<ExternalTransferForm />} />
+          <Route path="/evidences/:id/court/new" element={<CourtPresentationForm />} />
           <Route path="/audit-logs" element={<AuditLogsList />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/qr-redirect" element={<QrRedirect />} />

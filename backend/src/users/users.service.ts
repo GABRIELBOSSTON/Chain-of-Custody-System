@@ -1,3 +1,4 @@
+import { createAuditLog } from '../audit-logs/utils/audit-logger';
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -80,7 +81,7 @@ export class UsersService {
       select: userSelect,
     });
 
-    await this.prisma.auditLog.create({
+    await createAuditLog(this.prisma, {
       data: {
         userId: actorId || null,
         action: 'CREATE_USER',
@@ -112,7 +113,7 @@ export class UsersService {
       select: userSelect,
     });
 
-    await this.prisma.auditLog.create({
+    await createAuditLog(this.prisma, {
       data: {
         userId: actorId || null,
         action: 'UPDATE_USER',
@@ -139,7 +140,7 @@ export class UsersService {
       select: userSelect,
     });
 
-    await this.prisma.auditLog.create({
+    await createAuditLog(this.prisma, {
       data: {
         userId: actorId || null,
         action: 'DELETE_USER',

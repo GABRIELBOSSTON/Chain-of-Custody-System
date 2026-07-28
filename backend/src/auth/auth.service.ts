@@ -1,3 +1,4 @@
+import { createAuditLog } from '../audit-logs/utils/audit-logger';
 import { Injectable, UnauthorizedException, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -75,7 +76,7 @@ export class AuthService {
       const { password, ...result } = user;
 
       // Create Audit Log for Login
-      await this.prisma.auditLog.create({
+      await createAuditLog(this.prisma, {
         data: {
           userId: user.id,
           action: 'USER_LOGIN',

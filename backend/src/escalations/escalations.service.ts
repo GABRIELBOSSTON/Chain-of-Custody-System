@@ -1,3 +1,4 @@
+import { createAuditLog } from '../audit-logs/utils/audit-logger';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,7 +40,7 @@ export class EscalationsService {
         });
 
         if (!existingLog) {
-          await prisma.auditLog.create({
+          await createAuditLog(prisma, {
             data: {
               userId: null,
               action: 'ESCALATION_TRIGGERED',

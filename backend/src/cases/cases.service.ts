@@ -1,3 +1,4 @@
+import { createAuditLog } from '../audit-logs/utils/audit-logger';
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCaseDto } from './dto/create-case.dto';
@@ -53,7 +54,7 @@ export class CasesService {
         });
       }
 
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'CREATE_CASE',
@@ -73,7 +74,7 @@ export class CasesService {
   async findAll(user?: { id: string; role?: { name: string } }) {
     const whereClause: any = { deletedAt: null };
 
-    if (user && user.role?.name === 'INVESTIGATOR') {
+    if (user && (user.role?.name === 'INVESTIGATOR' || user.role?.name === 'ADMIN')) {
       whereClause.assignments = {
         some: { userId: user.id },
       };
@@ -130,7 +131,7 @@ export class CasesService {
         });
       }
 
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'UPDATE_CASE',
@@ -148,7 +149,7 @@ export class CasesService {
     await this.findById(id);
 
     return this.prisma.$transaction(async (prisma) => {
-      await prisma.auditLog.create({
+      await createAuditLog(prisma, {
         data: {
           userId,
           action: 'SOFT_DELETE_CASE',

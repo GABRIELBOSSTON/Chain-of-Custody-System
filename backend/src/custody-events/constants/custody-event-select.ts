@@ -7,6 +7,11 @@ export const custodyEventSelect = {
   location: true,
   eventTime: true,
   notes: true,
+  isOverdue: true,
+  externalOrganization: true,
+  externalRecipientName: true,
+  signatureName: true,
+  transferReason: true,
   actor: {
     select: {
       id: true,

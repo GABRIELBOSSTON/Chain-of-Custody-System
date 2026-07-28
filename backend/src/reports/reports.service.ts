@@ -12,7 +12,19 @@ import * as path from 'path';
 export class ReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSummary() {
+  private getCaseScope(user?: { id: string; role?: { name: string } }) {
+    if (user && (user.role?.name === 'ADMIN' || user.role?.name === 'INVESTIGATOR')) {
+      return { assignments: { some: { userId: user.id } } };
+    }
+    return {};
+  }
+
+  async getSummary(user?: { id: string; role?: { name: string } }) {
+    const caseScope = this.getCaseScope(user);
+    const caseWhere = { deletedAt: null, ...caseScope };
+    const evWhere = { deletedAt: null, case: caseScope };
+    const custodyWhere = { evidence: { case: caseScope } };
+
     const [
       totalCases, 
       totalEvidence, 
@@ -25,23 +37,23 @@ export class ReportsService {
       recentCustodyEvents,
       recentAuditLogs
     ] = await Promise.all([
-      this.prisma.case.count({ where: { deletedAt: null } }),
-      this.prisma.evidence.count({ where: { deletedAt: null } }),
-      this.prisma.custodyEvent.count(),
+      this.prisma.case.count({ where: caseWhere }),
+      this.prisma.evidence.count({ where: evWhere }),
+      this.prisma.custodyEvent.count({ where: custodyWhere }),
       this.prisma.user.count({ where: { deletedAt: null, isActive: true } }),
       this.prisma.auditLog.count(),
-      this.prisma.case.groupBy({ by: ['status'], where: { deletedAt: null }, _count: { id: true } }),
-      this.prisma.evidence.groupBy({ by: ['category'], where: { deletedAt: null }, _count: { id: true } }),
-      this.prisma.evidence.findMany({ where: { deletedAt: null }, orderBy: { createdAt: 'desc' }, take: 5, select: evidenceSelect }),
-      this.prisma.custodyEvent.findMany({ orderBy: { eventTime: 'desc' }, take: 5, select: custodyEventSelect }),
+      this.prisma.case.groupBy({ by: ['status'], where: caseWhere, _count: { id: true } }),
+      this.prisma.evidence.groupBy({ by: ['category'], where: evWhere, _count: { id: true } }),
+      this.prisma.evidence.findMany({ where: evWhere, orderBy: { createdAt: 'desc' }, take: 5, select: evidenceSelect }),
+      this.prisma.custodyEvent.findMany({ where: custodyWhere, orderBy: { eventTime: 'desc' }, take: 5, select: custodyEventSelect }),
       this.prisma.auditLog.findMany({ orderBy: { timestamp: 'desc' }, take: 5, select: auditLogSelect })
     ]);
 
     const pendingHandoversCount = await this.prisma.custodyEvent.count({
-      where: { action: 'HANDOVER_DISPATCH' }
+      where: { action: 'HANDOVER_DISPATCH', ...custodyWhere }
     });
     const overdueHandoversCount = await this.prisma.custodyEvent.count({
-      where: { action: 'HANDOVER_DISPATCH', isOverdue: true }
+      where: { action: 'HANDOVER_DISPATCH', isOverdue: true, ...custodyWhere }
     });
 
     return {
@@ -66,8 +78,9 @@ export class ReportsService {
     };
   }
 
-  async getActiveCases(startDate?: string, endDate?: string) {
-    const where: any = { deletedAt: null };
+  async getActiveCases(user?: { id: string; role?: { name: string } }, startDate?: string, endDate?: string) {
+    const caseScope = this.getCaseScope(user);
+    const where: any = { deletedAt: null, ...caseScope };
     if (startDate) where.createdAt = { ...where.createdAt, gte: new Date(startDate) };
     if (endDate) where.createdAt = { ...where.createdAt, lte: new Date(endDate) };
 
@@ -78,11 +91,16 @@ export class ReportsService {
     });
   }
 
-  async getActiveEvidence(startDate?: string, endDate?: string, caseId?: string) {
-    const where: any = { deletedAt: null };
+  async getActiveEvidence(user?: { id: string; role?: { name: string } }, startDate?: string, endDate?: string, caseId?: string) {
+    const caseScope = this.getCaseScope(user);
+    const where: any = { deletedAt: null, case: caseScope };
     if (startDate) where.createdAt = { ...where.createdAt, gte: new Date(startDate) };
     if (endDate) where.createdAt = { ...where.createdAt, lte: new Date(endDate) };
-    if (caseId) where.caseId = caseId;
+    if (caseId) {
+      where.caseId = caseId;
+      delete where.case; // we trust the explicit caseId filter over the scope object if provided, wait no, we should combine them!
+      where.case = { id: caseId, ...caseScope };
+    }
 
     const evidences = await this.prisma.evidence.findMany({
       where,
@@ -112,12 +130,18 @@ export class ReportsService {
     return results;
   }
 
-  async getCustodyEvents(startDate?: string, endDate?: string, caseId?: string, evidenceId?: string) {
-    const where: any = {};
+  async getCustodyEvents(user?: { id: string; role?: { name: string } }, startDate?: string, endDate?: string, caseId?: string, evidenceId?: string) {
+    const caseScope = this.getCaseScope(user);
+    const where: any = { evidence: { case: caseScope } };
     if (startDate) where.eventTime = { ...where.eventTime, gte: new Date(startDate) };
     if (endDate) where.eventTime = { ...where.eventTime, lte: new Date(endDate) };
-    if (evidenceId) where.evidenceId = evidenceId;
-    if (caseId) where.evidence = { caseId };
+    if (evidenceId) {
+      where.evidenceId = evidenceId;
+      where.evidence = { id: evidenceId, case: caseScope };
+    }
+    if (caseId) {
+      where.evidence = { ...where.evidence, caseId, case: { id: caseId, ...caseScope } };
+    }
 
     return this.prisma.custodyEvent.findMany({
       where,

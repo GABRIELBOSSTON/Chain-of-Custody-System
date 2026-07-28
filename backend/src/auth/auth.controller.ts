@@ -1,7 +1,8 @@
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { MfaLoginDto } from './dto/mfa-login.dto';
+import { RequestActivationDto, VerifyOtpDto, SetupAccountDto } from './dto/activation.dto';
 import { Public } from '../common/decorators/public.decorator';
 
 @Controller('auth')
@@ -16,9 +17,30 @@ export class AuthController {
   }
 
   @Public()
-  @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  @Post('login/mfa')
+  @HttpCode(HttpStatus.OK)
+  async verifyMfa(@Body() mfaDto: MfaLoginDto) {
+    return this.authService.verifyMfa(mfaDto);
+  }
+
+  @Public()
+  @Post('activation/request')
+  @HttpCode(HttpStatus.OK)
+  async requestActivation(@Body() dto: RequestActivationDto) {
+    return this.authService.requestActivation(dto);
+  }
+
+  @Public()
+  @Post('activation/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.verifyOtp(dto);
+  }
+
+  @Public()
+  @Post('activation/setup')
+  @HttpCode(HttpStatus.OK)
+  async setupAccount(@Body() dto: SetupAccountDto) {
+    return this.authService.setupAccount(dto);
   }
 }

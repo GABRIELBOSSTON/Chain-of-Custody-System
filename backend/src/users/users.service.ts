@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -13,6 +14,10 @@ export class UsersService {
       where: { deletedAt: null },
       select: userSelect,
     });
+  }
+
+  async getRoles() {
+    return this.prisma.role.findMany();
   }
 
   async findById(id: string) {
@@ -41,13 +46,54 @@ export class UsersService {
     return user;
   }
 
-  async create(createUserDto: CreateUserDto) {
-    throw new BadRequestException(
-      'User creation is temporarily disabled until Auth module is implemented.'
-    );
+  async create(createUserDto: CreateUserDto, actorId?: string) {
+    const existingEmail = await this.prisma.user.findUnique({
+      where: { email: createUserDto.email },
+    });
+    if (existingEmail) throw new ConflictException('Email already in use');
+
+    const existingPoliceId = await this.prisma.policeProfile.findUnique({
+      where: { policeId: createUserDto.policeId },
+    });
+    if (existingPoliceId) throw new ConflictException('Police ID already in use');
+
+    const role = await this.prisma.role.findUnique({
+      where: { id: createUserDto.roleId },
+    });
+    if (!role) throw new NotFoundException(`Role with ID ${createUserDto.roleId} not found`);
+
+    const dummyPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), 12);
+
+    const newUser = await this.prisma.user.create({
+      data: {
+        email: createUserDto.email,
+        password: dummyPassword,
+        roleId: createUserDto.roleId,
+        isActive: createUserDto.isActive ?? true,
+        policeProfile: {
+          create: {
+            policeId: createUserDto.policeId,
+            fullName: createUserDto.fullName,
+          }
+        }
+      },
+      select: userSelect,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId || null,
+        action: 'CREATE_USER',
+        entityId: newUser.id,
+        entityType: 'User',
+        description: `Created user with email ${newUser.email}`,
+      }
+    });
+
+    return newUser;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(id: string, updateUserDto: UpdateUserDto, actorId?: string) {
     await this.findById(id); // Ensure user exists
 
     if (updateUserDto.email) {
@@ -60,27 +106,49 @@ export class UsersService {
       }
     }
 
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id },
       data: updateUserDto,
       select: userSelect,
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId || null,
+        action: 'UPDATE_USER',
+        entityId: updatedUser.id,
+        entityType: 'User',
+        description: `Updated user with email ${updatedUser.email}`,
+      }
+    });
+
+    return updatedUser;
   }
 
-  async delete(id: string) {
-    await this.findById(id); // Ensure user exists
+  async delete(id: string, actorId?: string) {
+    const user = await this.findById(id); // Ensure user exists
 
-    // TODO: Implement deletedBy relation once Authentication provides current user context
-    // TODO: Implement AuditLog insertion for soft delete action
-    
     // We use soft-delete per architectural business rules
-    return this.prisma.user.update({
+    const deletedUser = await this.prisma.user.update({
       where: { id },
       data: { 
         deletedAt: new Date(),
-        isActive: false
+        isActive: false,
+        deletedBy: actorId || null
       },
       select: userSelect,
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId || null,
+        action: 'DELETE_USER',
+        entityId: deletedUser.id,
+        entityType: 'User',
+        description: `Deleted user with email ${user.email}`,
+      }
+    });
+
+    return deletedUser;
   }
 }

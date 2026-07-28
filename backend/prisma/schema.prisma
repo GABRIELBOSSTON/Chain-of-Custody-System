@@ -20,6 +20,24 @@ enum CaseStatus {
   ARCHIVED
 }
 
+enum EvidenceCategory {
+  PHYSICAL
+  DIGITAL
+  BIOLOGICAL
+  DOCUMENT
+  OTHER
+}
+
+enum EvidenceStatus {
+  SEIZED
+  IN_TRANSIT
+  IN_STORAGE
+  AT_LAB
+  IN_COURT
+  RETURNED
+  DESTROYED
+}
+
 enum ApprovalStatus {
   PENDING
   APPROVED
@@ -37,6 +55,13 @@ enum CustodyAction {
   HANDOVER_DISPATCH
   HANDOVER_ACK
   VERIFY
+  COLLECTED
+  TRANSFERRED
+  RECEIVED
+  LAB_ANALYSIS
+  COURT_SUBMISSION
+  RETURNED
+  OTHER
 }
 
 model Role {
@@ -171,14 +196,20 @@ model CaseStatusHistory {
 }
 
 model Evidence {
-  id              String    @id @default(uuid()) @db.Char(36)
-  caseId          String    @map("case_id") @db.Char(36)
-  name            String    @db.VarChar(255)
-  description     String?   @db.Text
-  currentLocation String    @map("current_location") @db.VarChar(255)
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  deletedAt       DateTime? @map("deleted_at")
+  id                 String           @id @default(uuid()) @db.Char(36)
+  caseId             String           @map("case_id") @db.Char(36)
+  evidenceNumber     String           @unique @map("evidence_number") @db.VarChar(100)
+  title              String           @db.VarChar(255)
+  description        String?          @db.Text
+  category           EvidenceCategory
+  collectionDate     DateTime         @map("collection_date")
+  collectionLocation String           @map("collection_location") @db.VarChar(255)
+  status             EvidenceStatus   @default(SEIZED)
+  storageLocation    String?          @map("storage_location") @db.VarChar(255)
+  isReadyForTransfer Boolean          @default(false) @map("is_ready_for_transfer")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  deletedAt          DateTime?        @map("deleted_at")
 
   case          Case               @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   approvals     EvidenceApproval[]
@@ -197,6 +228,7 @@ model EvidenceApproval {
   approvedBy  String?            @map("approved_by") @db.Char(36)
   status      ApprovalStatus
   actionType  ApprovalActionType @map("action_type")
+  proposedData Json?             @map("proposed_data")
   createdAt   DateTime           @default(now()) @map("created_at")
   updatedAt   DateTime           @updatedAt @map("updated_at")
 
@@ -210,8 +242,10 @@ model EvidenceApproval {
 model Attachment {
   id         String   @id @default(uuid()) @db.Char(36)
   evidenceId String   @map("evidence_id") @db.Char(36)
+  fileName   String   @map("file_name") @db.VarChar(255)
   filePath   String   @map("file_path") @db.VarChar(500)
-  fileType   String   @map("file_type") @db.VarChar(50)
+  mimeType   String   @map("mime_type") @db.VarChar(100)
+  fileSize   Int      @map("file_size")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -252,6 +286,7 @@ model CustodyEvent {
   recipientId String?       @map("recipient_id") @db.Char(36)
   location    String        @db.VarChar(255)
   eventTime   DateTime      @map("event_time")
+  notes       String?       @db.Text
 
   evidence  Evidence @relation(fields: [evidenceId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   actor     User     @relation("Actor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -266,6 +301,7 @@ model AuditLog {
   action     String   @db.VarChar(255)
   entityId   String?  @map("entity_id") @db.Char(36)
   entityType String?  @map("entity_type") @db.VarChar(50)
+  description String? @db.Text
   timestamp  DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)

@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -17,17 +17,37 @@ export class ReportsController {
   }
 
   @Get('cases')
-  async getActiveCases() {
-    return this.reportsService.getActiveCases();
+  async getActiveCases(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string
+  ) {
+    return this.reportsService.getActiveCases(startDate, endDate);
   }
 
   @Get('evidence')
-  async getActiveEvidence() {
-    return this.reportsService.getActiveEvidence();
+  async getActiveEvidence(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('caseId') caseId?: string
+  ) {
+    return this.reportsService.getActiveEvidence(startDate, endDate, caseId);
   }
 
   @Get('custody-events')
-  async getCustodyEvents() {
-    return this.reportsService.getCustodyEvents();
+  async getCustodyEvents(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('caseId') caseId?: string,
+    @Query('evidenceId') evidenceId?: string
+  ) {
+    return this.reportsService.getCustodyEvents(startDate, endDate, caseId, evidenceId);
+  }
+
+  @Get('audit-logs')
+  async getAuditLogs(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string
+  ) {
+    return this.reportsService.getAuditLogs(startDate, endDate);
   }
 }

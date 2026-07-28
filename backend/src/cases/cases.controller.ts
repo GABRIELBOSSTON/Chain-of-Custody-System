@@ -6,23 +6,27 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('cases')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CasesController {
-  constructor(private readonly casesService: CasesService) {}
+  constructor(private readonly casesService: CasesService) { }
 
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.INVESTIGATOR)
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createCaseDto: CreateCaseDto) {
-    return this.casesService.create(createCaseDto);
+  async create(
+    @Body() createCaseDto: CreateCaseDto,
+    @CurrentUser() user: { id: string; roleId: string; role?: { name: string } }
+  ) {
+    return this.casesService.create(createCaseDto, user.id, user.role?.name);
   }
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.INVESTIGATOR, Role.AUDITOR)
-  async findAll() {
-    return this.casesService.findAll();
+  async findAll(@CurrentUser() user: { id: string; role?: { name: string } }) {
+    return this.casesService.findAll(user);
   }
 
   @Get(':id')
@@ -36,13 +40,17 @@ export class CasesController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCaseDto: UpdateCaseDto,
+    @CurrentUser() user: { id: string }
   ) {
-    return this.casesService.update(id, updateCaseDto);
+    return this.casesService.update(id, updateCaseDto, user.id);
   }
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN)
-  async delete(@Param('id', ParseUUIDPipe) id: string) {
-    return this.casesService.delete(id);
+  async delete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: { id: string }
+  ) {
+    return this.casesService.delete(id, user.id);
   }
 }

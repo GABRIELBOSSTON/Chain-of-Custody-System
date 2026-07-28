@@ -6,7 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CasesModule } from './cases/cases.module';
-import { EvidenceModule } from './evidence/evidence.module';
+import { EvidencesModule } from './evidences/evidences.module';
 import { CustodyEventsModule } from './custody-events/custody-events.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { ReportsModule } from './reports/reports.module';
@@ -21,7 +21,7 @@ import { ReportsModule } from './reports/reports.module';
     AuthModule,
     UsersModule,
     CasesModule,
-    EvidenceModule,
+    EvidencesModule,
     CustodyEventsModule,
     AuditLogsModule,
     ReportsModule,

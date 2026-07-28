@@ -6,4 +6,29 @@ export const custodyEventSelect = {
   recipientId: true,
   location: true,
   eventTime: true,
+  notes: true,
+  actor: {
+    select: {
+      id: true,
+      email: true,
+      policeProfile: {
+        select: {
+          fullName: true,
+          policeId: true,
+        }
+      }
+    }
+  },
+  recipient: {
+    select: {
+      id: true,
+      email: true,
+      policeProfile: {
+        select: {
+          fullName: true,
+          policeId: true,
+        }
+      }
+    }
+  }
 };

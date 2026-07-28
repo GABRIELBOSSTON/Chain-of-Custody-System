@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, UseGuards, Query } from '@nestjs/common';
 import { AuditLogsService } from './audit-logs.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -12,8 +12,8 @@ export class AuditLogsController {
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR)
-  async findAll() {
-    return this.auditLogsService.findAll();
+  async findAll(@Query('q') query?: string) {
+    return this.auditLogsService.findAll(query);
   }
 
   @Get(':id')

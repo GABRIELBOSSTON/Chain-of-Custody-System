@@ -6,8 +6,26 @@ import { auditLogSelect } from './constants/audit-log-select';
 export class AuditLogsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(searchQuery?: string) {
+    const whereClause: any = {};
+
+    if (searchQuery) {
+      whereClause.OR = [
+        { action: { contains: searchQuery } },
+        { entityType: { contains: searchQuery } },
+        {
+          user: {
+            OR: [
+              { email: { contains: searchQuery } },
+              { policeProfile: { fullName: { contains: searchQuery } } }
+            ]
+          }
+        }
+      ];
+    }
+
     return this.prisma.auditLog.findMany({
+      where: whereClause,
       select: auditLogSelect,
       orderBy: { timestamp: 'desc' },
     });

@@ -25,4 +25,8 @@ export class CreateCustodyEventDto {
   @IsDateString()
   @IsNotEmpty()
   eventTime: string | Date;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

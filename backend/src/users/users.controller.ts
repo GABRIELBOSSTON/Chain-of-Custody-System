@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, ParseUUIDPipe, UseGuards, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -15,14 +16,20 @@ export class UsersController {
   @Post()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN)
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto, @Req() req: Request) {
+    return this.usersService.create(createUserDto, (req.user as any)?.sub);
   }
 
   @Get()
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.AUDITOR)
   async findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('roles')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  async getRoles() {
+    return this.usersService.getRoles();
   }
 
   @Get(':id')
@@ -36,13 +43,14 @@ export class UsersController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateUserDto: UpdateUserDto,
+    @Req() req: Request
   ) {
-    return this.usersService.update(id, updateUserDto);
+    return this.usersService.update(id, updateUserDto, (req.user as any)?.sub);
   }
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN)
-  async delete(@Param('id', ParseUUIDPipe) id: string) {
-    return this.usersService.delete(id);
+  async delete(@Param('id', ParseUUIDPipe) id: string, @Req() req: Request) {
+    return this.usersService.delete(id, (req.user as any)?.sub);
   }
 }

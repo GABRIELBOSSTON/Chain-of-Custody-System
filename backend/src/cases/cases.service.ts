@@ -9,7 +9,7 @@ import { CaseStatus } from '@prisma/client';
 export class CasesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createCaseDto: CreateCaseDto) {
+  async create(createCaseDto: CreateCaseDto, userId: string, roleName?: string) {
     const existingCase = await this.prisma.case.findUnique({
       where: { caseNumber: createCaseDto.caseNumber },
     });
@@ -18,21 +18,71 @@ export class CasesService {
       throw new ConflictException(`Case with number ${createCaseDto.caseNumber} already exists`);
     }
 
-    const data = {
-      ...createCaseDto,
-      status: createCaseDto.status || CaseStatus.OPEN,
-    };
+    const initialStatus = createCaseDto.status || CaseStatus.OPEN;
 
-    return this.prisma.case.create({
-      data,
-      select: caseSelect,
+    return this.prisma.$transaction(async (prisma) => {
+      const newCase = await prisma.case.create({
+        data: {
+          ...createCaseDto,
+          status: initialStatus,
+        },
+      });
+
+      await prisma.caseStatusHistory.create({
+        data: {
+          caseId: newCase.id,
+          status: initialStatus,
+          changedBy: userId,
+          changedAt: new Date(),
+        },
+      });
+
+      let isInvestigator = roleName === 'INVESTIGATOR';
+      if (!roleName) {
+        const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+        isInvestigator = user?.role?.name === 'INVESTIGATOR';
+      }
+
+      if (isInvestigator) {
+        await prisma.caseAssignment.create({
+          data: {
+            caseId: newCase.id,
+            userId,
+            assignedAt: new Date(),
+          },
+        });
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'CREATE_CASE',
+          entityId: newCase.id,
+          entityType: 'Case',
+          description: `Created case with number ${newCase.caseNumber}`,
+        }
+      });
+
+      return prisma.case.findUnique({
+        where: { id: newCase.id },
+        select: caseSelect,
+      });
     });
   }
 
-  async findAll() {
+  async findAll(user?: { id: string; role?: { name: string } }) {
+    const whereClause: any = { deletedAt: null };
+
+    if (user && user.role?.name === 'INVESTIGATOR') {
+      whereClause.assignments = {
+        some: { userId: user.id },
+      };
+    }
+
     return this.prisma.case.findMany({
-      where: { deletedAt: null },
+      where: whereClause,
       select: caseSelect,
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -49,34 +99,70 @@ export class CasesService {
     return caseRecord;
   }
 
-  async update(id: string, updateCaseDto: UpdateCaseDto) {
-    await this.findById(id); // Ensure the case exists
+  async update(id: string, updateCaseDto: UpdateCaseDto, userId: string) {
+    const existingCase = await this.findById(id);
 
     if (updateCaseDto.caseNumber) {
-      const existingCase = await this.prisma.case.findUnique({
+      const conflictCase = await this.prisma.case.findUnique({
         where: { caseNumber: updateCaseDto.caseNumber },
       });
 
-      if (existingCase && existingCase.id !== id) {
+      if (conflictCase && conflictCase.id !== id) {
         throw new ConflictException(`Case with number ${updateCaseDto.caseNumber} already in use`);
       }
     }
 
-    return this.prisma.case.update({
-      where: { id },
-      data: updateCaseDto,
-      select: caseSelect,
+    return this.prisma.$transaction(async (prisma) => {
+      const updatedCase = await prisma.case.update({
+        where: { id },
+        data: updateCaseDto,
+        select: caseSelect,
+      });
+
+      if (updateCaseDto.status && updateCaseDto.status !== existingCase.status) {
+        await prisma.caseStatusHistory.create({
+          data: {
+            caseId: id,
+            status: updateCaseDto.status,
+            changedBy: userId,
+            changedAt: new Date(),
+          },
+        });
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'UPDATE_CASE',
+          entityId: id,
+          entityType: 'Case',
+          description: `Updated case details for ${updatedCase.caseNumber}`,
+        }
+      });
+
+      return updatedCase;
     });
   }
 
-  async delete(id: string) {
-    await this.findById(id); // Ensure the case exists
+  async delete(id: string, userId: string) {
+    await this.findById(id);
 
-    // Perform architectural soft deletion
-    return this.prisma.case.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-      select: caseSelect,
+    return this.prisma.$transaction(async (prisma) => {
+      await prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'SOFT_DELETE_CASE',
+          entityId: id,
+          entityType: 'Case',
+          description: `Soft deleted case with ID ${id}`,
+        }
+      });
+
+      return prisma.case.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+        select: caseSelect,
+      });
     });
   }
 }

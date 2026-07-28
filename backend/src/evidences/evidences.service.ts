@@ -8,6 +8,7 @@ import { CreateEvidenceDto } from './dto/create-evidence.dto';
 import { UpdateEvidenceDto } from './dto/update-evidence.dto';
 import { evidenceSelect } from './constants/evidence-select';
 import { CaseStatus, EvidenceStatus, ApprovalStatus, ApprovalActionType } from '@prisma/client';
+import { encryptField, decryptField, encryptRoute, decryptRoute } from '../common/utils/crypto.util';
 
 @Injectable()
 export class EvidencesService {
@@ -48,9 +49,15 @@ export class EvidencesService {
     }
 
     return this.prisma.$transaction(async (prisma) => {
+      let dataDescription = createEvidenceDto.description;
+      if (dataDescription) {
+        dataDescription = encryptField(dataDescription) || undefined;
+      }
+
       const newEvidence = await prisma.evidence.create({
         data: {
           ...createEvidenceDto,
+          description: dataDescription,
           status: createEvidenceDto.status || EvidenceStatus.SEIZED,
           collectionDate: new Date(createEvidenceDto.collectionDate),
         },
@@ -100,8 +107,11 @@ export class EvidencesService {
         });
       }
 
-      // Generate QR Code containing internal URL
-      const qrPayload = `/evidences/${newEvidence.id}/detail`;
+      // Generate QR Code containing encrypted internal URL
+      const route = `/evidences/${newEvidence.id}/detail`;
+      const encryptedRoute = encryptRoute(route);
+      const frontendUrl = process.env.ALLOWED_ORIGINS?.split(',')[0] || 'http://localhost:5173';
+      const qrPayload = `${frontendUrl}/qr-redirect?payload=${encryptedRoute}`;
       const qrDataUrl = await QRCode.toDataURL(qrPayload);
 
       await prisma.qRCode.create({
@@ -123,21 +133,32 @@ export class EvidencesService {
       });
 
       // Re-fetch evidence to include attachments, hashes, and qrCode since we just created them
-      return prisma.evidence.findUnique({
+      const ev = await prisma.evidence.findUnique({
         where: { id: newEvidence.id },
         select: evidenceSelect,
       });
+      if (ev && ev.description) {
+        ev.description = decryptField(ev.description) as string;
+      }
+      return ev;
     });
   }
 
   async findAll(caseId?: string) {
-    return this.prisma.evidence.findMany({
+    const evidences = await this.prisma.evidence.findMany({
       where: { 
         deletedAt: null,
         ...(caseId ? { caseId } : {})
       },
       select: evidenceSelect,
       orderBy: { createdAt: 'desc' },
+    });
+
+    return evidences.map(ev => {
+      if (ev.description) {
+        ev.description = decryptField(ev.description) as string;
+      }
+      return ev;
     });
   }
 
@@ -149,6 +170,10 @@ export class EvidencesService {
 
     if (!evidence) {
       throw new NotFoundException(`Evidence with ID ${id} not found`);
+    }
+
+    if (evidence.description) {
+      evidence.description = decryptField(evidence.description) as string;
     }
 
     return evidence;
@@ -236,7 +261,10 @@ export class EvidencesService {
           requestedBy: userId,
           status: ApprovalStatus.PENDING,
           actionType: ApprovalActionType.EDIT,
-          proposedData: updateEvidenceDto as any,
+          proposedData: {
+            ...updateEvidenceDto,
+            description: updateEvidenceDto.description ? encryptField(updateEvidenceDto.description) : undefined
+          },
         }
       });
       await this.prisma.auditLog.create({
@@ -256,12 +284,19 @@ export class EvidencesService {
       if (dataToUpdate.collectionDate) {
         dataToUpdate.collectionDate = new Date(dataToUpdate.collectionDate);
       }
+      if (dataToUpdate.description) {
+        dataToUpdate.description = encryptField(dataToUpdate.description) || undefined;
+      }
 
       const updated = await prisma.evidence.update({
         where: { id },
         data: dataToUpdate,
         select: evidenceSelect,
       });
+
+      if (updated.description) {
+        updated.description = decryptField(updated.description) as string;
+      }
 
       await prisma.auditLog.create({
         data: {
@@ -290,17 +325,21 @@ export class EvidencesService {
       throw new BadRequestException('Approval request not found or not pending');
     }
 
-    const dataToUpdate = approval.proposedData as any;
-    if (dataToUpdate.collectionDate) {
-      dataToUpdate.collectionDate = new Date(dataToUpdate.collectionDate);
+    const proposedData = approval.proposedData as any;
+    if (proposedData.collectionDate) {
+      proposedData.collectionDate = new Date(proposedData.collectionDate);
     }
 
     return this.prisma.$transaction(async (prisma) => {
-      const updated = await prisma.evidence.update({
+      const updatedEvidence = await prisma.evidence.update({
         where: { id: approval.evidenceId },
-        data: dataToUpdate,
+        data: proposedData,
         select: evidenceSelect,
       });
+
+      if (updatedEvidence.description) {
+        updatedEvidence.description = decryptField(updatedEvidence.description) as string;
+      }
 
       await prisma.evidenceApproval.update({
         where: { id: approvalId },
@@ -313,11 +352,11 @@ export class EvidencesService {
           action: 'EDIT_APPROVED',
           entityId: approval.evidenceId,
           entityType: 'Evidence',
-          description: `Approved edit for evidence ${updated.evidenceNumber}`,
+          description: `Approved edit for evidence ${updatedEvidence.evidenceNumber}`,
         }
       });
 
-      return updated;
+      return { status: 'APPROVED', data: updatedEvidence };
     });
   }
 
@@ -370,5 +409,13 @@ export class EvidencesService {
         select: evidenceSelect,
       });
     });
+  }
+
+  async decryptQr(payload: string) {
+    const route = decryptRoute(payload);
+    if (!route) {
+      throw new BadRequestException('Invalid or malformed QR payload');
+    }
+    return { route };
   }
 }

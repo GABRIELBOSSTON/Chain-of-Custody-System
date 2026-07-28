@@ -106,10 +106,16 @@ export class EvidencesController {
 
   @Delete(':id')
   @Roles(Role.SUPER_ADMIN)
-  async delete(
-    @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser() user: { id: string }
-  ) {
+  async delete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: { id: string }) {
     return this.evidencesService.delete(id, user.id);
+  }
+
+  @Post('decrypt-qr')
+  @HttpCode(HttpStatus.OK)
+  async decryptQr(@Body('payload') payload: string) {
+    if (!payload) {
+      throw new BadRequestException('Payload is required');
+    }
+    return this.evidencesService.decryptQr(payload);
   }
 }

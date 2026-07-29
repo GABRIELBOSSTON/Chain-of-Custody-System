@@ -55,43 +55,48 @@ export class AuthService {
   }
 
   async verifyMfa(mfaDto: MfaLoginDto) {
+    let decoded;
     try {
-      const decoded = this.jwtService.verify(mfaDto.tempToken);
-      if (decoded.type !== 'MFA_REQUIRED') throw new UnauthorizedException('Invalid token type');
-
-      const user = await this.prisma.user.findUnique({
-        where: { id: decoded.sub },
-        include: { mfaSecret: true },
-      });
-
-      if (!user || !user.mfaSecret) throw new UnauthorizedException('User or MFA Secret not found');
-
-      const isValid = verifySync({ token: mfaDto.mfaCode, secret: user.mfaSecret.secret });
-      
-      if (!isValid) {
-        throw new UnauthorizedException('Invalid MFA code');
+      decoded = this.jwtService.verify(mfaDto.tempToken);
+      if (decoded.type !== 'MFA_REQUIRED') {
+        throw new UnauthorizedException('Invalid token type');
       }
-
-      const payload: JwtPayload = { sub: user.id, email: user.email, roleId: user.roleId };
-      const { password, ...result } = user;
-
-      // Create Audit Log for Login
-      await createAuditLog(this.prisma, {
-        data: {
-          userId: user.id,
-          action: 'USER_LOGIN',
-          entityType: 'Auth',
-          description: `User ${user.email} logged in successfully via MFA.`,
-        }
-      });
-
-      return {
-        accessToken: this.jwtService.sign(payload),
-        user: result,
-      };
-    } catch (e) {
+    } catch (e: any) {
       throw new UnauthorizedException('Invalid or expired temporary token');
     }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: decoded.sub },
+      include: { mfaSecret: true },
+    });
+
+    if (!user || !user.mfaSecret) {
+      throw new UnauthorizedException('User or MFA Secret not found');
+    }
+
+    const verificationResult = verifySync({ token: mfaDto.mfaCode, secret: user.mfaSecret.secret, window: 1 } as any);
+    
+    if (!verificationResult || !verificationResult.valid) {
+      throw new UnauthorizedException('Invalid MFA code');
+    }
+
+    const payload: JwtPayload = { sub: user.id, email: user.email, roleId: user.roleId };
+    const { password, ...result } = user;
+
+    // Create Audit Log for Login
+    await createAuditLog(this.prisma, {
+      data: {
+        userId: user.id,
+        action: 'USER_LOGIN',
+        entityType: 'Auth',
+        description: `User ${user.email} logged in successfully via MFA.`,
+      }
+    });
+
+    return {
+      accessToken: this.jwtService.sign(payload),
+      user: result,
+    };
   }
 
   // Activation Flow
